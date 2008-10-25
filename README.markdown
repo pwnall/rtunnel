@@ -38,10 +38,10 @@ This client/server allow you to reverse tunnel traffic.  Reverse tunneling is us
 
 **How does reverse tunneling work?**
 
-  * tunnel_client makes connection to tunnel_server (through NAT)
+  * tunnel\_client makes connection to tunnel\_server (through NAT)
   * tunnel_server listens on port X
   * internet_user connects to port X on tunnel server
-  * tunnel_server uses existing connection to tunnel internet user's request back to tunnel_client
+  * tunnel\_server uses existing connection to tunnel internet user's request back to tunnel\_client
   * tunnel_client connects to local server on port Y
   * tunnel_client tunnels internet users connection through to local server
 
