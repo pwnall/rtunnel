@@ -47,8 +47,8 @@ This client/server allow you to reverse tunnel traffic.  Reverse tunneling is us
 
 or:
 
-  * establish connection: tunnel_client --NAT--> tunnel_server
-  * reverse tunnel: internet_user -> tunnel_server --(NAT)--> tunnel_client -> server_running_behind_nat
+  * establish connection: tunnel\_client --NAT--> tunnel\_server
+  * reverse tunnel: internet\_user -> tunnel_server --(NAT)--> tunnel\_client -> server\_running\_behind\_nat
 
 **How is this different than normal tunneling?**
 
