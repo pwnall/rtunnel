@@ -1,7 +1,7 @@
 require 'resolv'
 
 module RTunnel
-  VERSION = '0.3.8'
+  VERSION = '0.3.9'
   
   DEFAULT_CONTROL_PORT = 19050
   PING_TIMEOUT = 10
