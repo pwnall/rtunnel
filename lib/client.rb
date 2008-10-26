@@ -5,9 +5,6 @@ require 'optparse'
 require 'timeout'
 require 'resolv'
 
-require 'facets'
-require 'facets/synchash'
-
 require 'core'
 require 'cmds'
 require 'leak'
@@ -16,7 +13,7 @@ $debug = true
 
 module RTunnel
   class Client
-    CONNECTIONS = SyncHash.new
+    CONNECTIONS = {}
 
     def initialize(options = {})
       @control_address = options[:control_address]

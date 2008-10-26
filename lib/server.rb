@@ -4,9 +4,6 @@ require 'gserver'
 require 'optparse'
 require 'uuidtools'
 
-require 'facets'
-require 'facets/synchash'
-
 require 'core'
 require 'cmds'
 
@@ -17,8 +14,8 @@ $debug = true
 module RTunnel
   # listens for incoming connections to tunnel
   class RemoteListenServer < GServer
-    CONNECTIONS = SyncHash.new
-    CONTROL_CONNECTION_MAPPING = SyncHash.new
+    CONNECTIONS = {}
+    CONTROL_CONNECTION_MAPPING = {}
 
     def initialize(port, host, control_connection)
       super(port, host, 10)

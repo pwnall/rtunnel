@@ -15,5 +15,4 @@ Gem::Specification.new do |s|
     "spec/integration_spec.rb", "spec/spec_helper.rb", "spec/client_spec.rb", "spec/cmds_spec.rb", "spec/server_spec.rb"
   ]
   s.add_dependency("uuidtools", [">= 1.0.2"])
-  s.add_dependency("facets", [">= 2.1.2"])
 end
