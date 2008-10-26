@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name     = "rtunnel"
-  s.version  = "0.3.8"
+  s.version  = "0.3.9"
   s.summary  = "reverse tunnel server and client"
   s.email    = "coderrr.contact@gmail.com"
   s.homepage = "http://github.com/coderrr/rtunnel"
