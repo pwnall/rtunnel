@@ -4,8 +4,6 @@ $LOAD_PATH << 'lib'
 
 require 'server'
 
-$debug = true
-
 control_address = tunnel_port = nil
 
 (opts = OptionParser.new do |o|

@@ -9,8 +9,6 @@ require 'gserver'
 
 Socket.do_not_reverse_lookup = true
 
-$debug = true
-
 module RTunnel
   # listens for incoming connections to tunnel
   class RemoteListenServer < GServer

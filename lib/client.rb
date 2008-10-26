@@ -5,8 +5,6 @@ require 'leak'
 require 'gserver'
 require 'timeout'
 
-$debug = true
-
 module RTunnel
   class Client
     CONNECTIONS = {}

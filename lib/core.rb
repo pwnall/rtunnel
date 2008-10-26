@@ -7,9 +7,12 @@ module RTunnel
   PING_TIMEOUT = 10
 end
 
-
-def D(msg)
-  puts msg  if $debug
+if ENV['RTUNNEL_DEBUG']
+  def D(msg)
+    puts msg
+  end
+else
+  def D(*a);end
 end
 
 class << Thread
