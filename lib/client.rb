@@ -1,3 +1,5 @@
+require 'rubygems'
+
 require 'gserver'
 require 'optparse'
 require 'timeout'
@@ -82,7 +84,7 @@ module RTunnel
 =end
 
       @main_thread = Thread.safe do
-        while true
+        loop do
           stop_ping_check
           D "connecting to control address (#{@control_address})"
           @control_sock = begin

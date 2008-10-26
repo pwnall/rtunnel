@@ -1,13 +1,15 @@
+require 'rubygems'
+
+require 'mongrel'
 require 'facets'
 require 'facets/random'
-require 'net/http'
 require 'logger'
 require 'stringio'
-require 'webrick'
 
 require 'lib/core'
 
 at_exit do
+  p $!
   puts "done, hit ^C"
   sleep 999999
 end
@@ -22,21 +24,28 @@ module Enumerable
   end
 end
 
-CONCURRENT_CONNECTIONS = 20
+CONCURRENT_CONNECTIONS = 25
 
-TUNNEL_SERVER_ADDRESS = "http://localhost:5000"
+TUNNEL_PORT = 5000
+HTTP_PORT = 4444
+TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
 EXPECTED_DATA = String.random(10*1024)
+
+puts EXPECTED_DATA.inspect
+
 p :gend_random_data
 
-s = WEBrick::HTTPServer.new(:Port => 4444, :AccessLog => [], :Logger => WEBrick::Log.new(nil, WEBrick::BasicLog::WARN))
-s.mount_proc("/") { |req, res| res.body = EXPECTED_DATA; res['Content-Type'] = "text/html" }
-Thread.new { s.start }
-p :started_webserver
+require 'thin'
+app = lambda { |env| [200, {}, EXPECTED_DATA] }
+server = ::Thin::Server.new('localhost', HTTP_PORT, app)
+Thread.new { server.start }
+
+p :started_stressed_server
 
 base_dir = File.dirname(__FILE__)
 
 fork{ exec "ruby #{base_dir}/rtunnel_server.rb > /dev/null 2>&1" }
-fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f 5000 -t 4444 > /dev/null 2>&1" }
+fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} > /dev/null 2>&1" }
 
 p :started_rtunnels
 
@@ -45,16 +54,16 @@ sleep 2
 p :slept
 
 STDOUT.sync = true
-999999999999.times do |i|
+999999999.times do |i|
   puts i  if i%10 == 0
   threads = []
   CONCURRENT_CONNECTIONS.times do
-    threads << Thread.safe do
-      text = Net::HTTP.get(URI.parse(TUNNEL_SERVER_ADDRESS))
+    threads << Thread.new do
+      text = %x{curl --silent #{TUNNEL_URI}}
       if text != EXPECTED_DATA
         puts "BAD!!!!"*1000
-        puts "response: #{text}\nexpected: #{EXPECTED_DATA}\n"
-        Process.kill("INT", $$)
+        puts "response: #{text.inspect}"
+        exit
       end
     end
   end

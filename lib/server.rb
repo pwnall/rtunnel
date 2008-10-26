@@ -1,3 +1,5 @@
+require 'rubygems'
+
 require 'gserver'
 require 'optparse'
 require 'uuidtools'
@@ -27,19 +29,19 @@ module RTunnel
     def serve(sock)
       D "new incoming connection"
 
-      conn_id = UUID.t
+      conn_id = UUID.timestamp_create.hexdigest
       CONNECTIONS[conn_id] = sock
       CONTROL_CONNECTION_MAPPING[conn_id] = @control_connection
       begin
         ControlServer.new_tunnel(conn_id)
 
-        while data = (sock.readpartial(16384) rescue nil)
-          ControlServer.send_data(conn_id, data)
+        sock.while_reading do |buf|
+          ControlServer.send_data(conn_id, buf)
         end
       rescue
         D "error talking on control connection, dropping incoming connection: #{$!.inspect}"
       end
-      
+
       ControlServer.close_tunnel(conn_id)
 
       CONNECTIONS.delete conn_id
@@ -95,12 +97,11 @@ module RTunnel
       sock.sync = true
 
       cmd_queue = ""
-      while true
+      loop do
         if r = IO.select([sock], nil, nil, @ping_interval)
           cmd_queue << sock.readpartial(16384)  rescue (D "#{$!.inspect}"; break)
           while Command.match(cmd_queue)
-            cmd = Command.parse(cmd_queue)
-            case cmd
+            case cmd = Command.parse(cmd_queue)
             when RemoteListenCommand
               @@m.synchronize do
                 addr, port = cmd.address.split(/:/)

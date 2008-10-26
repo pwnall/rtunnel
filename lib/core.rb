@@ -37,17 +37,19 @@ class String
 end
 
 class IO
-  def read_or_timeout(timeout = 5, read_size = 1024)
-    data = timeout(timeout) { self.read(read_size) }
-  rescue Timeout::Error
-    ''
-  rescue
-    nil
+  def while_reading(data = nil, &b)
+    while buf = readpartial_rescued(1024)
+      data << buf  if data
+      yield buf  if block_given?
+    end
+    data
   end
-end
 
-class UUID
-  def self.t
-    timestamp_create.hexdigest
+  private
+
+  def readpartial_rescued(size)
+    readpartial(size)
+  rescue EOFError
+    nil
   end
 end
