@@ -1,11 +1,11 @@
 require 'rubygems'
-
-require 'gserver'
-require 'optparse'
+gem 'uuidtools', '>=1.0.2'
 require 'uuidtools'
 
 require 'core'
 require 'cmds'
+
+require 'gserver'
 
 Socket.do_not_reverse_lookup = true
 

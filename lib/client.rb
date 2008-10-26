@@ -1,13 +1,9 @@
-require 'rubygems'
-
-require 'gserver'
-require 'optparse'
-require 'timeout'
-require 'resolv'
-
 require 'core'
 require 'cmds'
 require 'leak'
+
+require 'gserver'
+require 'timeout'
 
 $debug = true
 

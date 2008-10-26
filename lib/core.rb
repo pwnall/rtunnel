@@ -1,3 +1,5 @@
+require 'resolv'
+
 module RTunnel
   VERSION = '0.3.8'
   
@@ -32,7 +34,7 @@ class String
     self.replace(self.gsub(host, ip))
   rescue Exception
     puts "Error resolving #{host}"
-    exit
+    raise
   end
 end
 
