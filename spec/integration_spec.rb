@@ -16,7 +16,7 @@ describe "RTunnel" do
   end
 
   def read_from_address(addr)
-    timeout(2) { TCPSocket.new(*addr.split(/:/)).read }
+    timeout(2) { TCPSocket.open(*addr.split(/:/)) {|s| s.read } }
   end
 
   it "should work!" do
@@ -38,13 +38,48 @@ describe "RTunnel" do
       read_from_address('localhost:30002').should == echo_text
     ensure
       begin
-        server.stop
         client.stop
+        server.stop
         s.stop
       rescue
       end
     end
+  end
 
+  it "should ping all clients periodically" do
+    begin
+      server = RTunnel::Server.new(:control_address => 'localhost:9999', :ping_interval => 0.2)
+      clients = []
+      clients << RTunnel::Client.new(:control_address => 'localhost:9999', :remote_listen_address => '30002', :tunnel_to_address => '30003')
+      clients << RTunnel::Client.new(:control_address => 'localhost:9999', :remote_listen_address => '30012', :tunnel_to_address => '30013')
+      server.start
+      clients.each{|c|c.start}
+
+      pings = Hash.new {|h,k| h[k] = [] }
+      t = Thread.new do
+        loop do
+          clients.each do |client|
+            pings[client] << client.instance_eval { @last_ping }
+          end
+          sleep 0.05
+        end
+      end
+
+      sleep 2
+
+      clients.each do |client|
+        # 2 seconds, 0.2 pings a sec = ~10 pings
+        (9..11).should include(pings[client].uniq.size)
+      end
+    ensure
+      t.kill
+      begin
+        clients.each{|c|c.stop}
+        server.stop
+      rescue
+        p $!,$@
+      end
+    end
   end
 
   it "the client shouldnt fail even if there is no server running at the tunnel_to address" do
@@ -61,12 +96,10 @@ describe "RTunnel" do
       read_from_address('localhost:30002').should be_empty
     ensure
       begin
-        server.stop
         client.stop
+        server.stop
       rescue
       end
     end
-
   end
-
 end

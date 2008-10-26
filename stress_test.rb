@@ -8,7 +8,9 @@ require 'stringio'
 
 require 'lib/core'
 
+pids = []
 at_exit do
+  pids.each {|pid| Process.kill 9, pid }
   p $!
   puts "done, hit ^C"
   sleep 999999
@@ -44,8 +46,8 @@ p :started_stressed_server
 
 base_dir = File.dirname(__FILE__)
 
-fork{ exec "ruby #{base_dir}/rtunnel_server.rb > /dev/null 2>&1" }
-fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} > /dev/null 2>&1" }
+pids << fork{ exec "ruby #{base_dir}/rtunnel_server.rb > /dev/null 2>&1" }
+pids << fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} > /dev/null 2>&1" }
 
 p :started_rtunnels
 

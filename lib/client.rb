@@ -42,7 +42,7 @@ module RTunnel
       @last_ping = Time.now
 
       @threads << Thread.safe do
-        while true
+        loop do
           if @check_ping and (Time.now - @last_ping) > @ping_timeout
             D "control connection timeout"
             @control_sock.close  rescue nil
@@ -93,10 +93,10 @@ module RTunnel
                       end
                     rescue Exception
                       begin
-                      D "to tunnel closed, closing from tunnel"
-                      conn.close
-                      CONNECTIONS.delete cmd.conn_id
-                      write_to_control_sock CloseConnectionCommand.new(cmd.conn_id)
+                        D "to tunnel closed, closing from tunnel"
+                        conn.close
+                        CONNECTIONS.delete cmd.conn_id
+                        write_to_control_sock CloseConnectionCommand.new(cmd.conn_id)
                       rescue
                         p $!
                         puts $!.backtrace.join("\n")

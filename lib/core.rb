@@ -45,8 +45,6 @@ class IO
     data
   end
 
-  private
-
   def readpartial_rescued(size)
     readpartial(size)
   rescue EOFError
