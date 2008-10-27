@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 $LOAD_PATH << 'lib'
-
+require 'optparse'
 require 'server'
 
 control_address = tunnel_port = nil

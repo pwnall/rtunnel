@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 $LOAD_PATH << 'lib'
-
+require 'optparse'
 require 'client'
 
 control_address = tunnel_from_address = tunnel_to_address = remote_listen_address = nil

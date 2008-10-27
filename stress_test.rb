@@ -1,12 +1,18 @@
 require 'rubygems'
+require 'thin'
 
-require 'mongrel'
-require 'facets'
-require 'facets/random'
+require 'lib/core'
+
 require 'logger'
 require 'stringio'
 
-require 'lib/core'
+
+CONCURRENT_CONNECTIONS = 25
+DISPLAY_RTUNNEL_OUTPUT = false
+TUNNEL_PORT = 5000
+HTTP_PORT = 4444
+
+#################
 
 pids = []
 at_exit do
@@ -26,34 +32,22 @@ module Enumerable
   end
 end
 
-CONCURRENT_CONNECTIONS = 25
-
-TUNNEL_PORT = 5000
-HTTP_PORT = 4444
 TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
-EXPECTED_DATA = String.random(10*1024)
+EXPECTED_DATA = (0..10*1024).map{0until(c=rand(?z).chr)=~/(?!_)\w/;c}*'' # gen random string GOLF FTW!
+puts EXPECTED_DATA
 
-puts EXPECTED_DATA.inspect
-
-p :gend_random_data
-
-require 'thin'
 app = lambda { |env| [200, {}, EXPECTED_DATA] }
 server = ::Thin::Server.new('localhost', HTTP_PORT, app)
 Thread.new { server.start }
 
-p :started_stressed_server
-
 base_dir = File.dirname(__FILE__)
 
-pids << fork{ exec "ruby #{base_dir}/rtunnel_server.rb > /dev/null 2>&1" }
-pids << fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} > /dev/null 2>&1" }
+d = !DISPLAY_RTUNNEL_OUTPUT
+pids << fork{ exec "ruby #{base_dir}/rtunnel_server.rb #{d && '> /dev/null'} 2>&1" }
+pids << fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} #{d &&' > /dev/null'} 2>&1" }
 
-p :started_rtunnels
-
+puts 'wait 2 secs'
 sleep 2
-
-p :slept
 
 STDOUT.sync = true
 999999999.times do |i|
