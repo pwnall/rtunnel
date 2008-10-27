@@ -3,7 +3,8 @@ INSTALL
 
 on server and local machine:
 
-`gem install rtunnel`
+`gem sources -a http://gems.github.com`
+`sudo gem install coderrr-rtunnel`
 
 If you don't have root access on server, you can use either the rtunnel_server_linux binary (only works with linux), or extract the .tar.gz and use `rtunnel_server.rb` (all function the same)
 
