@@ -1,6 +1,10 @@
+require 'rubygems'
+require 'echoe'
 require 'rake'
 require 'spec/rake/spectask'
-require 'lib/core'
+
+$: << File.join(File.dirname(__FILE__), 'lib')
+require 'rtunnel'
 
 desc "Run all examples"
 Spec::Rake::SpecTask.new('spec') do |t|
@@ -17,18 +21,21 @@ task :pkg4google do
           mv rtunnel_server_linux pkg/rtunnel_server_linux-#{RTunnel::VERSION}"
 end
 
-require 'rubygems'
-require 'hoe'
+desc "Print command codes"
+task :codes do
+  RTunnel::Command.print_codes
+end
 
-Hoe.new('rtunnel', RTunnel::VERSION) do |p|
+Echoe.new('rtunnel') do |p|
   p.rubyforge_name = 'coderrr'
   p.author = 'coderrr'
   p.email = 'coderrr.contact@gmail.com'
-  # p.summary = 'FIX'
-  p.description = p.paragraphs_of('README.txt', 0..1).join("\n\n")
-  # p.url = p.paragraphs_of('README.txt', 0).first.split(/\n/)[1..-1]
-  p.changes = p.paragraphs_of('History.txt', 0..1).join("\n\n")
-  p.remote_rdoc_dir = '' # Release to root
-  p.extra_deps << ["uuidtools", ">=1.0.2"]
-  p.extra_deps << ["facets", ">= 2.1.2"]
+  p.summary = 'Reverse tunnel server and client.'  
+  p.description = ''
+  p.url = 'http://code.google.com/p/rtunnel/'
+  # p.remote_rdoc_dir = '' # Release to root
+  p.dependencies = ["uuidtools >=1.0.2",  "facets >=2.1.2"]
+  p.development_dependencies = ["echoe >=3.0.1", "rspec >=1.1.11"]
+  p.need_tar_gz = false
+  p.need_zip = false
 end
