@@ -1,6 +1,7 @@
 require 'rubygems'
 gem 'uuidtools', '>=1.0.2'
 require 'uuidtools'
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
 require 'core'
 require 'cmds'
@@ -9,12 +10,26 @@ require 'gserver'
  
 Socket.do_not_reverse_lookup = true
  
+=======
+
+require 'core'
+require 'cmds'
+
+require 'gserver'
+
+Socket.do_not_reverse_lookup = true
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
 module RTunnel
   # listens for incoming connections to tunnel
   class RemoteListenServer < GServer
     CONNECTIONS = {}
     CONTROL_CONNECTION_MAPPING = {}
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
+=======
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
     def initialize(port, host, control_connection)
       super(port, host, 10)
       @control_connection = control_connection
@@ -23,13 +38,21 @@ module RTunnel
  
     def serve(sock)
       D "new incoming connection"
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
+=======
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
       conn_id = UUID.timestamp_create.hexdigest
       CONNECTIONS[conn_id] = sock
       CONTROL_CONNECTION_MAPPING[conn_id] = @control_connection
       begin
         ControlServer.new_tunnel(conn_id)
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
+=======
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
         sock.while_reading do |buf|
           begin
             ControlServer.send_data(conn_id, buf)
@@ -39,9 +62,15 @@ module RTunnel
           end
         end
       rescue IOError
+<<<<<<< HEAD:lib/rtunnel/server.rb
         raise unless $!.message =~ /stream closed/i
       end
  
+=======
+        raise  unless $!.message =~ /stream closed/i
+      end
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
       ControlServer.close_tunnel(conn_id)
  
       CONNECTIONS.delete conn_id
@@ -90,11 +119,19 @@ module RTunnel
         RemoteListenServer::CONTROL_CONNECTION_MAPPING[conn_id]
       end
     end
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
     def starting
       start_pinging
     end
  
+=======
+
+    def starting
+      start_pinging
+    end
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
     def serve(sock)
       D "new control connection"
       @@control_connections << sock
@@ -113,6 +150,7 @@ module RTunnel
               end
               (new_rls = RemoteListenServer.new(port, addr, sock)).start
               @@remote_listen_servers << new_rls
+<<<<<<< HEAD:lib/rtunnel/server.rb
             end
             D "listening for remote connections on #{cmd.address}"
           when SendDataCommand
@@ -127,6 +165,22 @@ module RTunnel
               D "closing remote connection: #{cmd.conn_id}"
               connection.close
             end
+=======
+            end
+            D "listening for remote connections on #{cmd.address}"
+          when SendDataCommand
+            conn = RemoteListenServer::CONNECTIONS[cmd.conn_id]
+            begin
+              conn.write(cmd.data)  if conn
+            rescue Errno::EPIPE
+              D "broken pipe on #{cmd.conn_id}"
+            end
+          when CloseConnectionCommand
+            if connection = RemoteListenServer::CONNECTIONS[cmd.conn_id]
+              D "closing remote connection: #{cmd.conn_id}"
+              connection.close
+            end
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
           else
             D "bad command received: #{cmd.inspect}"
           end
@@ -146,14 +200,24 @@ module RTunnel
       @ping_thread.kill
       @@remote_listen_server.stop
     end
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
     private
  
+=======
+
+    private
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
     def start_pinging
       @ping_thread = Thread.safe do
         loop do
           sleep @ping_interval
+<<<<<<< HEAD:lib/rtunnel/server.rb
  
+=======
+
+>>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
           @@m.synchronize do
             @@control_connections.each {|cc| cc.write PingCommand.new }
           end

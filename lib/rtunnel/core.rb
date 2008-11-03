@@ -1,3 +1,5 @@
+require 'logger'
+
 module RTunnel
   DEFAULT_CONTROL_PORT = 19050
   PING_TIMEOUT = 10
