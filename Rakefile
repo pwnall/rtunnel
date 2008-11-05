@@ -13,9 +13,9 @@ end
 
 desc "Create packages"
 task :pkg4google do
-  system %Q{cd .. && tar cvzf rtunnel/pkg/rtunnel-#{RTunnel::VERSION}.tar.gz rtunnel \
-            --exclude=.svn --exclude=pkg --exclude=rtunnel.ipr --exclude=rtunnel.iws \
-            --exclude=rtunnel.iml
+  system %Q{cd .. && tar cvzf rtunnel/pkg/rtunnel-#{RTunnel::VERSION}.tar.gz \
+            rtunnel --exclude=.svn --exclude=pkg --exclude=rtunnel.ipr \
+            --exclude=rtunnel.iws --exclude=rtunnel.iml
             }
   system "rubyscript2exe rtunnel_server.rb --stop-immediately && 
           mv rtunnel_server_linux pkg/rtunnel_server_linux-#{RTunnel::VERSION}"
@@ -35,7 +35,8 @@ Echoe.new('rtunnel') do |p|
   p.url = 'http://code.google.com/p/rtunnel/'
   # p.remote_rdoc_dir = '' # Release to root
   p.dependencies = ["uuidtools >=1.0.2",  "facets >=2.1.2"]
-  p.development_dependencies = ["echoe >=3.0.1", "rspec >=1.1.11"]
+  p.development_dependencies = ["echoe >=3.0.1", "rspec >=1.1.11",
+                                "simple-daemon >=0.1.2"]
   p.need_tar_gz = false
   p.need_zip = false
 end

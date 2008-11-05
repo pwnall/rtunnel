@@ -6,6 +6,7 @@ require 'rubygems'
 
 class RTunnel::Client  
   include RTunnel::Logging
+  include RTunnel::SocketFactory
   
   attr_reader :control_address, :control_host
   attr_reader :remote_listen_address, :tunnel_to_address
@@ -25,10 +26,12 @@ class RTunnel::Client
 
     spawn_ping_thread
 
-    # memory_leak_test
+    # RTunnel::LeakTracker.start
 
     @main_thread = Thread.safe do
+      thread_killer = @thread_killer
       loop do
+        break if thread_killer[0]        
         stop_ping_check
         unless connect_control
           sleep 1
@@ -36,12 +39,13 @@ class RTunnel::Client
         end
         start_ping_check
 
+        break if thread_killer[0]        
         send_listen_command
         
+        break if thread_killer[0]        
         process_commands
-        
-        # TODO(costan): go through all connections, 
       end
+      close_all_connections      
     end
   end
   
@@ -93,44 +97,6 @@ class RTunnel::Client
      :ping_timeout].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
-    end
-  end
-  
-  
-  ## memory leak test (dead code)
-
-  # this can be safely ignored for now (was previously commented out)
-  def memory_leak_test
-    logged_thread do
-      sleep 10
-      begin
-        objects = Hash.new 0
-
-        while true
-          last_objects = objects.dup
-          ObjectSpace.each_object do |o|
-            objects[o.class] += 1
-          end
-
-          unless last_objects.empty?
-            objects.reject! {|k,v| !last_objects.has_key? k }
-          end
-
-          new_objects = objects.dup
-          objects.each do |(klass, count)|
-            # has been GC'ed, "cant be leaking"
-            new_objects.delete klass if count < last_objects[klass]
-          end
-          objects = new_objects
-
-          PP.pp objects.sort_by{|(k,cnt)| cnt }.reverse[0..10], STDERR
-
-          sleep 10
-        end
-      rescue Object
-        STDERR.puts $!.inspect
-        STDERR.puts $!.backtrace.join("\n")
-      end
     end
   end
   
@@ -201,7 +167,9 @@ class RTunnel::Client
   def connect_control_sock
     I "connecting to control address (#{@control_address})"
     @control_sock = begin
-      timeout(5) { TCPSocket.new(*@control_address.split(/:/)) }
+      timeout(5) do
+        socket :out_address => @control_address, :no_delay => true
+      end
     rescue Timeout::Error
       W "timeout connecting to control address"
       return false
@@ -219,11 +187,7 @@ class RTunnel::Client
   
   # Write a command to the control socket.
   def write_to_control_sock(command)
-    @control_sock_lock.synchronize do
-      encoded_command = IOString.new
-      command.encode encoded_command
-      @control_sock.write encoded_command.read
-    end
+    @control_sock_lock.synchronize { @control_sock.write command.to_encoded_str}
   end
   
   # Send a ListenCommand to the control address.
@@ -308,9 +272,7 @@ class RTunnel::Client
   
   # De-register a port forwarding connection. This method is thread-safe.
   def deregister_connection(connection_id)
-    @connections_lock.synchronize do
-      return @connections.delete connection_id
-    end    
+    @connections_lock.synchronize { @connections.delete connection_id }
   end  
   
   

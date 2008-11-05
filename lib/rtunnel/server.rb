@@ -1,261 +1,358 @@
 require 'rubygems'
 gem 'uuidtools', '>=1.0.2'
 require 'uuidtools'
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-require 'core'
-require 'cmds'
- 
-require 'gserver'
- 
-Socket.do_not_reverse_lookup = true
- 
-=======
 
-require 'core'
-require 'cmds'
+class RTunnel::AbstractServer
+  include RTunnel::SocketFactory
+  include RTunnel::Logging
+  
+  def initialize(host, port)
+    @listen_socket = socket :in_host => host, :in_port => port,
+                            :no_delay => true
+    @connections_lock = Mutex.new
+    @connections = {}
+    @connections_next_id = 1
+    @main_thread = nil
+  end
+    
+  # Start the server. The processing will happen in another thread. 
+  def start
+    @main_thread = spawn_connection_accepter
+    self
+  end
 
-require 'gserver'
+  # Stop all the threads and close all the connections.
+  def stop
+    @listen_socket.close
+    close_all_connections
+    self
+  end
+  
+  # Block until the server is stopped.
+  def join
+    @main_thread.join if @main_thread
+  end
+  
+  # Spawn a thread that accepts connections from the listen socket and calls
+  # incoming_connections on them.
+  # The 
+  def spawn_connection_accepter
+    logged_thread do
+      loop do
+        @listen_socket.listen 1024
+        conn_socket, conn_sock_addr = @listen_socket.accept
+        incoming_connection conn_socket, conn_sock_addr
+      end
+    end    
+  end
 
-Socket.do_not_reverse_lookup = true
+  # Process an incoming connection.
+  def incoming_connection(socket, socket_address)
+    D "new incoming connection from #{socket_address}"
+    conn = register_connection socket
+    spawn_reader conn
+    spawn_writer conn
+    return conn
+  end  
+    
+  # Register a new incoming connection.
+  def register_connection(socket)
+    conn = new_connection socket
+    @connections_lock.synchronize { @connections[conn[:id]] = conn }
+    return conn
+  end
 
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-module RTunnel
-  # listens for incoming connections to tunnel
-  class RemoteListenServer < GServer
-    CONNECTIONS = {}
-    CONTROL_CONNECTION_MAPPING = {}
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-=======
+  # Stop keeping track of an incoming connection.
+  def deregister_connection(connection_id)
+    @connections_lock.synchronize { @connections.delete connection_id }
+  end
 
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-    def initialize(port, host, control_connection)
-      super(port, host, 10)
-      @control_connection = control_connection
-      @maxConnections = 1024
+  # Close an incoming connection.
+  def close_connection(connection_id)
+    return nil unless connection = deregister_connection(connection_id)
+    connection[:queue] << nil        
+    connection_data[:sock].close
+    connection
+  end
+  
+  # Generate an ID for a new connection.
+  def new_connection_id
+    @connections_lock.synchronize do
+      new_id = @connections_next_id
+      @connections_next_id += 1
+      new_id
     end
- 
-    def serve(sock)
-      D "new incoming connection"
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-=======
+  end
 
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-      conn_id = UUID.timestamp_create.hexdigest
-      CONNECTIONS[conn_id] = sock
-      CONTROL_CONNECTION_MAPPING[conn_id] = @control_connection
+  # Spawn a thread that reads incoming data from a socket and yields the data
+  # as it arrives.
+  def spawn_socket_reader(socket)
+    logged_thread do
       begin
-        ControlServer.new_tunnel(conn_id)
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-=======
-
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-        sock.while_reading do |buf|
-          begin
-            ControlServer.send_data(conn_id, buf)
-          rescue Exception
-            D "error talking on control connection, dropping incoming connection: #{$!.inspect}"
-            break
-          end
-        end
-      rescue IOError
-<<<<<<< HEAD:lib/rtunnel/server.rb
-        raise unless $!.message =~ /stream closed/i
-      end
- 
-=======
-        raise  unless $!.message =~ /stream closed/i
-      end
-
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-      ControlServer.close_tunnel(conn_id)
- 
-      CONNECTIONS.delete conn_id
-      CONTROL_CONNECTION_MAPPING.delete conn_id
- 
-      D "sock closed"
-    rescue
-      p $!
-      puts $!.backtrace.join("\n")
-    end
-  end
- 
-  class ControlServer < GServer
-    @@control_connections = []
-    @@remote_listen_servers = []
- 
-    @@m = Mutex.new
- 
-    attr_accessor :ping_interval
- 
-    def initialize(*args)
-      super
-      @maxConnections = 1024
-    end
- 
-    class << self
-      def new_tunnel(conn_id)
-        D "sending create connection command: #{conn_id}"
- 
-        @@m.synchronize { control_connection_for(conn_id).write CreateConnectionCommand.new(conn_id) }
-      end
- 
-      def send_data(conn_id, data)
-        @@m.synchronize { control_connection_for(conn_id).write SendDataCommand.new(conn_id, data) }
-      end
- 
-      def close_tunnel(conn_id)
-        D "sending close connection command"
- 
-        @@m.synchronize { control_connection_for(conn_id).write CloseConnectionCommand.new(conn_id) }
-      end
- 
-      private
- 
-      def control_connection_for(conn_id)
-        RemoteListenServer::CONTROL_CONNECTION_MAPPING[conn_id]
-      end
-    end
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-    def starting
-      start_pinging
-    end
- 
-=======
-
-    def starting
-      start_pinging
-    end
-
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-    def serve(sock)
-      D "new control connection"
-      @@control_connections << sock
-      sock.sync = true
- 
-      cmd_queue = ""
-      sock.while_reading(cmd_queue = '') do
-        while Command.match(cmd_queue)
-          case cmd = Command.parse(cmd_queue)
-          when RemoteListenCommand
-            @@m.synchronize do
-              addr, port = cmd.address.split(/:/)
-              if rls = @@remote_listen_servers.detect {|s| s.port == port.to_i }
-                rls.stop
-                @@remote_listen_servers.delete rls
-              end
-              (new_rls = RemoteListenServer.new(port, addr, sock)).start
-              @@remote_listen_servers << new_rls
-<<<<<<< HEAD:lib/rtunnel/server.rb
-            end
-            D "listening for remote connections on #{cmd.address}"
-          when SendDataCommand
-            conn = RemoteListenServer::CONNECTIONS[cmd.conn_id]
-            begin
-              conn.write(cmd.data) if conn
-            rescue Errno::EPIPE
-              D "broken pipe on #{cmd.conn_id}"
-            end
-          when CloseConnectionCommand
-            if connection = RemoteListenServer::CONNECTIONS[cmd.conn_id]
-              D "closing remote connection: #{cmd.conn_id}"
-              connection.close
-            end
-=======
-            end
-            D "listening for remote connections on #{cmd.address}"
-          when SendDataCommand
-            conn = RemoteListenServer::CONNECTIONS[cmd.conn_id]
-            begin
-              conn.write(cmd.data)  if conn
-            rescue Errno::EPIPE
-              D "broken pipe on #{cmd.conn_id}"
-            end
-          when CloseConnectionCommand
-            if connection = RemoteListenServer::CONNECTIONS[cmd.conn_id]
-              D "closing remote connection: #{cmd.conn_id}"
-              connection.close
-            end
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-          else
-            D "bad command received: #{cmd.inspect}"
-          end
-        end
-      end
-    rescue Errno::ECONNRESET
-      D "client disconnected (conn reset)"
-    rescue
-      D $!.inspect
-      D $@*"\n"
-      raise
-    ensure
-      @@control_connections.delete sock
-    end
- 
-    def stopping
-      @ping_thread.kill
-      @@remote_listen_server.stop
-    end
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-    private
- 
-=======
-
-    private
-
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-    def start_pinging
-      @ping_thread = Thread.safe do
         loop do
-          sleep @ping_interval
-<<<<<<< HEAD:lib/rtunnel/server.rb
- 
-=======
-
->>>>>>> 6faa66aaec20022d9444ab8bf53494079e1d9e8e:lib/server.rb
-          @@m.synchronize do
-            @@control_connections.each {|cc| cc.write PingCommand.new }
-          end
+          data = socket.readpartial 16384
+          yield data      
+        end
+      rescue Errno::ECONNRESET
+        D "client disconnected (conn reset)"
+        yield nil        
+      rescue EOFError => e
+        D "client disconnected (eof)"
+        if socket.closed?
+          yield nil
+        else
+          raise
         end
       end
     end
   end
- 
-  class Server
-    def initialize(options = {})
-      @control_address = options[:control_address]
-      if ! @control_address
-        @control_address = "0.0.0.0:#{DEFAULT_CONTROL_PORT}" if ! @control_address
-      elsif @control_address =~ /^\d+$/
-        @control_address.insert 0, "0.0.0.0:"
-      elsif @control_address !~ /:\d+$/
-        @control_address << ":#{DEFAULT_CONTROL_PORT}"
-      end
-      @control_host = @control_address.split(/:/).first
- 
-      @ping_interval = options[:ping_interval] || 2.0
-    end
- 
-    def start
-      @control_server = ControlServer.new(*@control_address.split(/:/).reverse)
-      @control_server.ping_interval = @ping_interval
-      @control_server.audit = true
- 
-      @control_server.start
-    end
- 
-    def join
-      @control_server.join
-    end
- 
-    def stop
-      @control_server.shutdown
-      ControlServer.stop(@control_server.port, @control_server.host)
+
+  # Spawn a thread that reads incoming data from a connection and calls
+  # inbound_data when data arrives.
+  # The thread is stopped by closing the connection.
+  def spawn_reader(connection)
+    spawn_socket_reader connection[:sock] do |data|
+      data ? inbound_data(connection, data) : closed_connection(connection)
     end
   end
+  
+  # Spawn a thread that moves data from a connection's outbound queue to its
+  # socket.
+  # The thread is stopped by enqueuing a nil to the outbound queue.
+  def spawn_writer(connection)
+    logged_thread do
+      socket = connection[:sock]
+      queue = connection[:queue]
+      loop do
+        data = queue.pop
+        break unless data
+        begin
+          socket.write data
+        rescue Errno::EPIPE
+          D "broken pipe on #{connection[:id]}"
+        end
+      end
+      close_connection connection
+    end
+  end
+  
+  # Queue data to be sent through a connection.
+  def enqueue_outbound_data(connection_id, data)
+    connection = @connection_lock.synchronize { @connection[connection_id] }
+    if connection
+      connection[:queue].push data
+    else
+      W "request to send data to unknown connection #{connection_id}"
+    end
+  end
+end
+
+class RTunnel::RemoteListenServer < RTunnel::AbstractServer  
+  def initialize(host, port, control_queue)
+    super(host, port)
+    @control_queue = control_queue
+  end
+  
+  def new_connection_id
+    UUID.timestamp_create.hexdigest
+  end
+  
+  def incoming_connection(socket, socket_address)
+    conn = super
+    
+    D "sending create connection command for #{conn[:id]}"
+    
+    @control_queue << ConnectionCreateCommand.new(conn[:id]).to_encoded_str
+  end
+
+  def inbound_data(connection, data)
+    @control_queue << SendDataCommand.new(conn[:id], data).to_encoded_str
+  end
+  
+  def closed_connection(connection)
+    D "sending close connection command for #{connection[:id]}"
+    
+    @control_queue << CloseConnectionCommand.new(conn_id).to_encoded_str
+  end
+end
+
+class RTunnel::ControlServer < RTunnel::AbstractServer
+  include RTunnel::SocketFactory
+  include RTunnel::Logging
+  
+  attr_accessor :ping_interval
+
+  def initialize(host, port)    
+    super
+    @connection_by_port = {}    
+  end
+  
+  def new_connection(socket)
+    conn = super
+    conn[:cmd_queue] = RTunnel::ThreadedIOString.new
+    conn
+  end
+  
+  def incoming_connection(socket)
+    conn = super
+    spawn_command_processor conn
+  end
+  
+  def inbound_data(connection, data)
+    conn[:cmd_queue] << data
+  end
+  
+  def close_connection(connection_id)
+    conn = super
+    return unless conn
+    conn[:cmd_queue].writer_close
+  end
+  
+  # Spawn a thread processing commands from the connection's conmmand queue.
+  # The thread is stopped by closing the queue via writer_close.
+  def spawn_command_processor(connection)
+    logged_thread do
+      cmd_queue = connection[:cmd_queue]
+      begin
+        while Command.decode(cmd_queue)
+          process_command connection, command
+        end
+      end
+    end
+  end
+  
+  def process_command(connection, command)
+    case command
+    when RemoteListenCommand
+      process_remote_listen(connection, command.address)
+    when SendDataCommand
+      process_send_data(connection, command.connection_id, command.data)
+    when CloseConnectionCommand
+      process_close_connection(connection, connection_id)
+    else
+      W "bad command received: #{command.inspect}"
+    end
+  end
+  
+  def process_remote_listen(connection, address)
+    address, port = address.split ':', 2
+    
+    @connection_lock.synchronize do
+      close_connection_at_port port, false
+      
+      listen_server = RemoteListenServer.new(address)
+      @connecions_by_port[port] = listen_server
+      connection[:listen_serv] = listen_server
+      listen_server.start
+    end
+    D "listening for remote connections on #{address}"
+  end
+  
+  def process_send_data(connection, tunnel_connection_id, data)    
+    listen_server = connection[:listen_serv]
+    if listen_server
+      listen_server.enqueue_outbound_data tunnel_connection_id, data
+    else
+      E "send data before opening listen socket on connection #{connection_id}"
+    end
+  end
+  
+  def process_close_connection(connection, tunnel_connection_id)
+    listen_server = @connections_lock.synchronize do
+      @tunnel_for_connection_id[tunnel_connection_id]
+    end
+    if listen_server
+      D "closing remote connection: #{tunnel_connection_id}"
+      listen_server.close_connection connection_id
+    else
+      W "request to close unknown connection #{tunnel_connection_id}"
+    end
+  end
+  
+  def close_connection_at_port(port, already_synchronized = true)
+    if already_synchronized
+      if @connections_by_port[port]
+        @connections_by_port.remove port
+        logged_thread do
+          @connections_by_port[port].stop
+        end
+      end
+    else
+      @connections_lock.synchronize { close_connection_at_port port, true }
+    end
+  end
+
+  def start
+    super
+    @thread_killer = [false]
+    spawn_ping_thread
+  end
+
+  def stop
+    super
+  end
+
+  # Spawns a thread that pings every connection.
+  def spawn_ping_thread
+    logged_thread do
+      thread_killer = @thread_killer
+      loop do
+        break unless thread_killer[0]
+        sleep @ping_interval
+        
+        break unless thread_killer[0]
+        connections = @connection_lock.synchronize { @connections.values.dup }
+        encoded_ping_command = PingCommand.new.to_encoded_str
+        connections.each do |conn|
+          conn[:queue].push encoded_ping_command
+        end
+      end
+    end
+  end
+end
+
+
+# The RTunnel server class, managing control and connection servers.
+class RTunnel::Server
+  def initialize(options = {})
+    process_options options    
+  end
+  
+  def start
+    @control_server = ControlServer.new(*@control_address.split(/:/).reverse)
+    @control_server.ping_interval = @ping_interval
+    @control_server.audit = true
+
+    @control_server.start
+  end
+ 
+  def join
+    @control_server.join
+  end
+ 
+  def stop
+    @control_server.shutdown
+    ControlServer.stop(@control_server.port, @control_server.host)
+  end
+  
+  ## option processing
+  
+  def process_options(options)
+    [:control_address, :ping_interval].each do |opt|
+      instance_variable_set "@#{opt}".to_sym,
+          RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
+    end
+  end
+
+  def extract_control_address(address)
+    return "0.0.0.0:#{}" unless @control_address
+    host, port = address.split(':', 2)
+    host ||= "0.0.0.0"
+    port ||= DEFAULT_CONTROL_PORT.to_s
+    return "#{host}:#{port}"
+  end
+  
+  def extract_ping_interval(interval)
+    interval || 2.0
+  end   
 end

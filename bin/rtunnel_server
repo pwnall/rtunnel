@@ -1,3 +1,4 @@
 #!/usr/bin/ruby
 
-load 'rtunnel_server_cmd.rb'
+require 'rtunnel'
+RTunnel.run_server

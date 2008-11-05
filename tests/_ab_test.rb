@@ -1,17 +1,10 @@
-#require 'facets'
-require 'net/http'
-require 'logger'
-require 'stringio'
-require 'webrick'
-
-require 'lib/core'
-
-puts "make sure a fast responding webserver is started on port 4000"
-
 base_dir = File.dirname(__FILE__)
+lo_server_file = File.join(base_dir, '../tests/lo_http_server.rb')
+lo_port = 4000
+Kernel.system "ruby #{lo_server_file} start #{lo_port}"
 
-fork{ exec "ruby #{base_dir}/rtunnel_server.rb > /dev/null 2>&1" }
-fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f 5000 -t 4000 > /dev/null" }
+fork{ exec "ruby #{base_dir}/../lib/rtunnel/rtunnel_server.rb > /dev/null 2>&1" }
+fork{ exec "ruby #{base_dir}/../lib/rtunnel/rtunnel_client.rb -c localhost -f 5000 -t 4000 > /dev/null" }
 
 sleep 2
 

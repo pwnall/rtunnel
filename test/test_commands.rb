@@ -10,50 +10,45 @@ class CommandsTest < Test::Unit::TestCase
     @data = (0..255).to_a.pack('C*')
   end
   
-  def write_ping
-    cmd = RTunnel::PingCommand.new
-    cmd.encode @str
+  def generate_ping
+    RTunnel::PingCommand.new
   end
-  def assert_ping
+  def verify_ping
     cmd = RTunnel::Command.decode @str
     assert_equal RTunnel::PingCommand, cmd.class
   end
   
-  def write_create
-    cmd = RTunnel::CreateConnectionCommand.new @test_id1
-    cmd.encode @str
+  def generate_create
+    RTunnel::CreateConnectionCommand.new @test_id1
   end
-  def assert_create
+  def verify_create
     cmd = RTunnel::Command.decode @str
     assert_equal RTunnel::CreateConnectionCommand, cmd.class
     assert_equal @test_id1, cmd.connection_id
   end
   
-  def write_close
-    cmd = RTunnel::CloseConnectionCommand.new @test_id2
-    cmd.encode @str
+  def generate_close
+    RTunnel::CloseConnectionCommand.new @test_id2
   end
-  def assert_close
+  def verify_close
     cmd = RTunnel::Command.decode @str
     assert_equal RTunnel::CloseConnectionCommand, cmd.class
     assert_equal @test_id2, cmd.connection_id
   end
 
-  def write_listen
-    cmd = RTunnel::RemoteListenCommand.new @test_address
-    cmd.encode @str
+  def generate_listen
+    RTunnel::RemoteListenCommand.new @test_address
   end
-  def assert_listen
+  def verify_listen
     cmd = RTunnel::Command.decode @str
     assert_equal RTunnel::RemoteListenCommand, cmd.class
     assert_equal @test_address, cmd.address
   end
 
-  def write_send
-    cmd = RTunnel::SendDataCommand.new @test_id1, @data
-    cmd.encode @str
+  def generate_send
+    RTunnel::SendDataCommand.new @test_id1, @data
   end
-  def assert_send
+  def verify_send
     cmd = RTunnel::Command.decode @str
     assert_equal RTunnel::SendDataCommand, cmd.class
     assert_equal @test_id1, cmd.connection_id
@@ -61,17 +56,24 @@ class CommandsTest < Test::Unit::TestCase
   end
 
   [:ping, :create, :close, :listen, :send].each do |cmd|
-    define_method "test_#{cmd}" do
-      self.send "write_#{cmd}"
-      self.send "assert_#{cmd}"
+    define_method "test_#{cmd}_encode" do
+      command = self.send "generate_#{cmd}"
+      command.encode @str
+      self.send "verify_#{cmd}"
       assert_equal "", @str.read, "Command #{cmd} did not consume its entire outpt"
     end
+    
+    define_method "test_#{cmd}_to_encoded_str" do
+      command = self.send "generate_#{cmd}"
+      command.encode @str
+      assert_equal @str.read, command.to_encoded_str
+    end    
   end
   
-  def test_all
+  def test_all_encodes
     sequence = [:create, :ping, :listen, :ping, :send, :send, :ping, :ping, :send, :close]
-    sequence.each { |cmd| self.send "write_#{cmd}".to_sym }    
-    sequence.each { |cmd| self.send "assert_#{cmd}".to_sym }
+    sequence.each { |cmd| self.send("generate_#{cmd}").encode @str }
+    sequence.each { |cmd| self.send "verify_#{cmd}" }
     assert_equal "", @str.read
   end
 end

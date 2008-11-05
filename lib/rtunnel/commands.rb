@@ -1,5 +1,5 @@
 class RTunnel::Command  
-  # associates command codes with the classes implementing them
+  # Associates command codes with the classes implementing them.
   class Registry
     def initialize
       @classes = {}
@@ -53,12 +53,19 @@ class RTunnel::Command
     return self
   end
 
-  # encodes this command to a IO / IOString
+  # Encode this command to a IO / IOString.
   def encode(io)
     io.write RTunnel::Command.registry.code_for(self.class)
   end
+  
+  # Produce a string with an encoding of this command.
+  def to_encoded_str
+    io_str = RTunnel::IOString.new
+    self.encode io_str
+    return io_str.read
+  end
 
-  # decode a Command instance from a IO / IOString  
+  # Decode a Command instance from a IO / IOString.
   def self.decode(io)
     return nil unless code = io.getc
     klass = registry.class_for code.chr
@@ -68,7 +75,7 @@ class RTunnel::Command
     command
   end
 
-  # prints all the codes and their classes
+  # Print all the codes and their classes.
   def self.print_codes
     registry.each do |code_and_class|
       print "#{code_and_class.first}: #{code_and_class.last}\n"

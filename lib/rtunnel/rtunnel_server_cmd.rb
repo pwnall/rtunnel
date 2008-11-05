@@ -1,13 +1,7 @@
 #!/usr/bin/ruby
 
 module RTunnel
-  def run_server
-    $LOAD_PATH << 'lib'
-    
-    require 'server'
-    
-    $debug = true
-    
+  def run_server    
     control_address = tunnel_port = nil
     
     (opts = OptionParser.new do |o|

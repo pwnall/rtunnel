@@ -1,1 +1,13 @@
-v0.3.9. New packaging.
+v0.4.0. Re-packaged as gem using echoe. More threads.
+
+v0.3.9. Cleanup and removed dependencies.
+
+v0.3.6. New protocol. Available as gem for easier installation.
+
+v0.2.1. Minor bugfix, cmdline options change.
+
+v0.2.0. Much simpler
+
+v0.1.2. Created rtunnel_server binary for linux so you don't need Ruby installed on the host you want to reverse tunnel from.
+
+v0.1.1. Added default control port of 19050, no longer have to specify this on client or server unless you care to change it.
