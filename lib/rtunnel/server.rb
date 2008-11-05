@@ -84,6 +84,10 @@ class RTunnel::AbstractServer
       new_id
     end
   end
+  
+  def new_connection(socket)
+    { :id => new_connection_id, :queue => Queue.new, :sock => socket }
+  end
 
   # Spawn a thread that reads incoming data from a socket and yields the data
   # as it arrives.
@@ -94,16 +98,9 @@ class RTunnel::AbstractServer
           data = socket.readpartial 16384
           yield data      
         end
-      rescue Errno::ECONNRESET
-        D "client disconnected (conn reset)"
-        yield nil        
-      rescue EOFError => e
-        D "client disconnected (eof)"
-        if socket.closed?
-          yield nil
-        else
-          raise
-        end
+      rescue Errno::ECONNRESET, EOFError => e
+        D "client disconnected (#{e.class.name})"
+        yield nil
       end
     end
   end
@@ -139,12 +136,16 @@ class RTunnel::AbstractServer
   
   # Queue data to be sent through a connection.
   def enqueue_outbound_data(connection_id, data)
-    connection = @connection_lock.synchronize { @connection[connection_id] }
+    connection = @connections_lock.synchronize { @connection[connection_id] }
     if connection
       connection[:queue].push data
     else
       W "request to send data to unknown connection #{connection_id}"
     end
+  end
+  
+  def closed_connection(connection)
+    close_connection connection
   end
 end
 
@@ -178,8 +179,7 @@ class RTunnel::RemoteListenServer < RTunnel::AbstractServer
 end
 
 class RTunnel::ControlServer < RTunnel::AbstractServer
-  include RTunnel::SocketFactory
-  include RTunnel::Logging
+  include RTunnel
   
   attr_accessor :ping_interval
 
@@ -194,13 +194,13 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     conn
   end
   
-  def incoming_connection(socket)
+  def incoming_connection(socket, socket_address)
     conn = super
     spawn_command_processor conn
   end
   
   def inbound_data(connection, data)
-    conn[:cmd_queue] << data
+    connection[:cmd_queue] << data
   end
   
   def close_connection(connection_id)
@@ -215,7 +215,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     logged_thread do
       cmd_queue = connection[:cmd_queue]
       begin
-        while Command.decode(cmd_queue)
+        while command = Command.decode(cmd_queue)
           process_command connection, command
         end
       end
@@ -238,7 +238,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def process_remote_listen(connection, address)
     address, port = address.split ':', 2
     
-    @connection_lock.synchronize do
+    @connections_lock.synchronize do
       close_connection_at_port port, false
       
       listen_server = RemoteListenServer.new(address)
@@ -302,7 +302,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
         sleep @ping_interval
         
         break unless thread_killer[0]
-        connections = @connection_lock.synchronize { @connections.values.dup }
+        connections = @connections_lock.synchronize { @connections.values.dup }
         encoded_ping_command = PingCommand.new.to_encoded_str
         connections.each do |conn|
           conn[:queue].push encoded_ping_command
@@ -324,6 +324,7 @@ class RTunnel::Server
     @control_server.ping_interval = @ping_interval
 
     @control_server.start
+    self
   end
  
   def join

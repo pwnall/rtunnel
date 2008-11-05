@@ -39,9 +39,9 @@ module RTunnel::Logging
   # creates a thread that will not die silently if an error occurs;
   # the error will be logged 
   def logged_thread(*args)
-    Thread.new *args do
+    Thread.new *args do |*thread_args|
       begin
-        yield
+        yield *thread_args
       rescue Exception => e
         E "Worker thread exception - #{e.inspect}"
         D "Stack trace:\n" + e.backtrace.join("\n")

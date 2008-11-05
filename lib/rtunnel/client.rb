@@ -4,7 +4,8 @@ require 'timeout'
 
 require 'rubygems'
 
-class RTunnel::Client  
+class RTunnel::Client
+  include RTunnel
   include RTunnel::Logging
   include RTunnel::SocketFactory
   
@@ -52,7 +53,7 @@ class RTunnel::Client
     ip = timeout(timeout_sec) { Resolv.getaddress(host) }
     return rest ? "#{ip}:#{rest}" : ip
   rescue Exception
-    raise RTunnel::AbortProgramException, "Error resolving #{host}" 
+    raise AbortProgramException, "Error resolving #{host}" 
   end
   
   def self.extract_control_address(address)
@@ -321,7 +322,7 @@ class RTunnel::Client
 
   # After this is called, the ping thread will close the control connection upon
   # ping timeouts.
-  def disable_ping_timeouts
+  def enable_ping_timeouts
     @last_ping = Time.now
     @ping_lock = Mutex.new
   end

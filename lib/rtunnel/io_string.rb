@@ -127,21 +127,21 @@ class RTunnel::ThreadedStringBuffer < RTunnel::StringBuffer
   
   def read_n(n)
     @append_lock.synchronize do
-      wait_for_n n, false unless @closed
+      wait_for_n n, true unless @closed
       super
     end
   end
   
-  def wait_for_n(n, do_synchronize = true)
-    if do_synchronize
-      @append_lock.synchronize do
-        wait_for_n n, false
-      end
-    else
+  def wait_for_n(n, already_synchronized = false)
+    if already_synchronized
       while bytes_available < n
         break if @closed
         @append_notice.wait @append_lock
       end      
+    else
+      @append_lock.synchronize do
+        wait_for_n n, true
+      end
     end
   end
 end

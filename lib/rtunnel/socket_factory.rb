@@ -95,9 +95,9 @@ module RTunnel::SocketFactory
   def self.set_options_on_accept_sockets(socket, options)
     socket.instance_variable_set :@rtunnel_factory_options, options
     def socket.accept(*args)
-      s = super
-      RTunnel::SocketFactory.set_options s, @rtunnel_factory_options
-      return s
+      sock, addr = super
+      RTunnel::SocketFactory.set_options sock, @rtunnel_factory_options
+      return sock, addr
     end
   end
   
