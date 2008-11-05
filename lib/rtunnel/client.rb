@@ -27,26 +27,10 @@ class RTunnel::Client
     spawn_ping_thread
 
     # RTunnel::LeakTracker.start
+    
+    spawn_main_thread
 
-    @main_thread = Thread.safe do
-      thread_killer = @thread_killer
-      loop do
-        break if thread_killer[0]        
-        stop_ping_check
-        unless connect_control
-          sleep 1
-          next
-        end
-        start_ping_check
-
-        break if thread_killer[0]        
-        send_listen_command
-        
-        break if thread_killer[0]        
-        process_commands
-      end
-      close_all_connections      
-    end
+    self
   end
   
   def join
@@ -102,6 +86,28 @@ class RTunnel::Client
   
   
   ## control connection management
+
+  def spawn_main_thread
+    @main_thread = logged_thread do
+      thread_killer = @thread_killer
+      loop do
+        break if thread_killer[0]        
+        disable_ping_timeouts
+        unless connect_control_sock
+          sleep 1
+          next
+        end
+        enable_ping_timeouts
+
+        break if thread_killer[0]        
+        send_listen_command
+        
+        break if thread_killer[0]        
+        process_commands
+      end
+      close_all_connections      
+    end
+  end
   
   # Loop and process commands coming from the control connection.
   def process_commands
@@ -168,7 +174,7 @@ class RTunnel::Client
     I "connecting to control address (#{@control_address})"
     @control_sock = begin
       timeout(5) do
-        socket :out_address => @control_address, :no_delay => true
+        socket :out_addr => @control_address, :no_delay => true
       end
     rescue Timeout::Error
       W "timeout connecting to control address"
@@ -280,12 +286,12 @@ class RTunnel::Client
 
   def ping_timeout?
     return false unless @ping_lock
-    return @ping_lock.synchronized { (Time.now - @last_ping) > @ping_timeout }
+    return @ping_lock.synchronize { (Time.now - @last_ping) > @ping_timeout }
   end
   
   # Acknowledge a ping received from the control connection.
   def process_ping
-    @ping_lock and @ping_lock.synchronized { @last_ping = Time.now }
+    @ping_lock and @ping_lock.synchronize { @last_ping = Time.now }
   end
 
   # Spawn a thread that closes the control connection on ping timeouts.
@@ -301,7 +307,6 @@ class RTunnel::Client
           @control_sock.close rescue nil
         end
 
-        check_ping_timeout
         break if thread_killer[0]
         sleep 1
       end

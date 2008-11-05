@@ -6,13 +6,14 @@ class RTunnel::AbstractServer
   include RTunnel::SocketFactory
   include RTunnel::Logging
   
-  def initialize(host, port)
-    @listen_socket = socket :in_host => host, :in_port => port,
-                            :no_delay => true
+  def initialize(address)
+    @listen_socket = socket :in_addr => address, :no_delay => true
     @connections_lock = Mutex.new
     @connections = {}
     @connections_next_id = 1
     @main_thread = nil
+    
+    init_log
   end
     
   # Start the server. The processing will happen in another thread. 
@@ -182,7 +183,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   
   attr_accessor :ping_interval
 
-  def initialize(host, port)    
+  def initialize(address)
     super
     @connection_by_port = {}    
   end
@@ -319,9 +320,8 @@ class RTunnel::Server
   end
   
   def start
-    @control_server = ControlServer.new(*@control_address.split(/:/).reverse)
+    @control_server = RTunnel::ControlServer.new @control_address
     @control_server.ping_interval = @ping_interval
-    @control_server.audit = true
 
     @control_server.start
   end
@@ -331,8 +331,7 @@ class RTunnel::Server
   end
  
   def stop
-    @control_server.shutdown
-    ControlServer.stop(@control_server.port, @control_server.host)
+    @control_server.stop
   end
   
   ## option processing
@@ -340,19 +339,19 @@ class RTunnel::Server
   def process_options(options)
     [:control_address, :ping_interval].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
-          RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
+          RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
   end
 
-  def extract_control_address(address)
-    return "0.0.0.0:#{}" unless @control_address
+  def self.extract_control_address(address)
+    return "0.0.0.0:#{RTunnel::DEFAULT_CONTROL_PORT}" unless address
     host, port = address.split(':', 2)
     host ||= "0.0.0.0"
     port ||= DEFAULT_CONTROL_PORT.to_s
     return "#{host}:#{port}"
   end
   
-  def extract_ping_interval(interval)
+  def self.extract_ping_interval(interval)
     interval || 2.0
   end   
 end

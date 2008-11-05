@@ -13,7 +13,7 @@ module RTunnel::Logging
   def init_log(options = {})
     # TODO(costan): parse logging options
     @log = Logger.new STDERR
-    @log.level = Logger::WARN
+    @log.level = Logger::DEBUG
   end
   
   def D(message)
@@ -39,12 +39,12 @@ module RTunnel::Logging
   # creates a thread that will not die silently if an error occurs;
   # the error will be logged 
   def logged_thread(*args)
-    Thread.new(*a) do
+    Thread.new *args do
       begin
         yield
       rescue Exception => e
         E "Worker thread exception - #{e.inspect}"
-        I e.backtrace.join("\n")
+        D "Stack trace:\n" + e.backtrace.join("\n")
       end  
     end
   end
@@ -52,7 +52,7 @@ end
 
 class IO
   def read_or_timeout(timeout = 5, read_size = 1024)
-    data = timeout(timeout) { self.read(read_size) }
+    timeout(timeout) { self.read(read_size) }
   rescue Timeout::Error
     ''
   rescue

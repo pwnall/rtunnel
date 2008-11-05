@@ -1,17 +1,33 @@
 require 'socket'
 
-module RTunnel::SocketFactory  
+module RTunnel::SocketFactory
+  def self.split_address(address)
+    port_index = address.index /[^:]\:[^:]/
+    if port_index
+      [address[0, port_index + 1], address[port_index + 2, address.length]]
+    else
+      [address, nil]
+    end
+  end
+  
+  def self.host_from_address(address)
+    address and split_address(address)[0]
+  end
+  
+  def self.port_from_address(address)
+    address and (port_string = split_address(address)[1]) and port_string.to_i
+  end
+  
   def self.inbound?(options)
-    options[:inbound] or options[:in_port] or options[:in_addr]
+    options[:inbound] or [:in_port, :in_host, :in_addr].any? { |k| options[k] }
   end
   
   def self.bind_host(options)
-    options[:in_host] or options[:in_addr].split(':').first or
-        '0.0.0.0'
+    options[:in_host] or host_from_address(options[:in_addr]) or '0.0.0.0'
   end
   
   def self.bind_port(options)
-    options[:in_port] or options[:in_addr].split(':').last or 0
+    options[:in_port] or port_from_address(options[:in_addr]) or 0
   end
   
   def self.bind_socket_address(options)
@@ -19,14 +35,14 @@ module RTunnel::SocketFactory
   end
   
   def self.connect_host(options)
-    options[:out_host] or options[:out_addr].split(':').first
+    options[:out_host] or host_from_address(options[:out_addr])
   end
   
   def self.connect_port(options)
-    options[:out_port] or options[:out_addr].split(':').last
+    options[:out_port] or port_from_address(options[:out_addr])
   end
   
-  def self.connect_socket_address
+  def self.connect_socket_address(options)
     Socket::pack_sockaddr_in connect_port(options), connect_host(options)
   end
   
@@ -65,18 +81,23 @@ module RTunnel::SocketFactory
     end
     
     unless options[:reverse_lookup]
-      socket.do_not_reverse_lookup
+      if socket.respond_to? :do_not_reverse_lookup
+        socket.do_not_reverse_lookup = true
+      else
+        # work around until the patch below actually gets committed:
+        # http://blade.nagaokaut.ac.jp/cgi-bin/scat.rb/ruby/ruby-core/2346
+        BasicSocket.do_not_reverse_lookup = true
+      end
     end
   end
 
-  # new sockets coming out of socket.listen will have the given options set
-  def self.set_options_on_listen_sockets(socket, options)
-    class << socket
-      def listen(*args)
-        s = super
-        RTunnel::SocketFactory.set_options s, options
-        return s
-      end
+  # new sockets coming out of socket.accept will have the given options set
+  def self.set_options_on_accept_sockets(socket, options)
+    socket.instance_variable_set :@rtunnel_factory_options, options
+    def socket.accept(*args)
+      s = super
+      RTunnel::SocketFactory.set_options s, @rtunnel_factory_options
+      return s
     end
   end
   
@@ -85,10 +106,11 @@ module RTunnel::SocketFactory
     set_options s, options
     if inbound? options
       bind s, options    
-      set_options_on_listen_sockets s
+      set_options_on_accept_sockets s, options
     else
       connect s, options
     end
+    return s
   end
   
   def socket(options = {})

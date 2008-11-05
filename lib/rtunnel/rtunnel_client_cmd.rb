@@ -1,23 +1,26 @@
-#!/usr/bin/ruby
+require 'optparse'
 
 module RTunnel
-  def run_client
-    control_address = tunnel_from_address = tunnel_to_address = remote_listen_address = nil
+  def self.run_client
+    options = {}
     
     (opts = OptionParser.new do |o|
-      o.on("-c", "--control-address ADDRESS") { |a| control_address = a }
-      o.on("-f", "--remote-listen-port ADDRESS") { |a| remote_listen_address = a }
-      o.on("-t", "--tunnel-to ADDRESS") { |a| tunnel_to_address = a }
-    end).parse!  rescue (puts opts; exit)
+      o.on("-c", "--control-address ADDRESS") do |a|
+        options[:control_address] = a
+      end
+      o.on("-f", "--remote-listen-port ADDRESS") do |a|
+        options[:remote_listen_address] = a
+      end
+      o.on("-t", "--tunnel-to ADDRESS") do |a|
+        options[:tunnel_to_address] = a
+      end
+    end).parse!  rescue (puts opts; return)
     
-    (puts opts; exit)  if [control_address, remote_listen_address, tunnel_to_address].include? nil
+    mandatory_keys = [:control_address, :remote_listen_address,
+                      :tunnel_to_address]
+                      
+    (puts opts; return) unless mandatory_keys.all? { |key| options[key] }
     
-    client = RTunnel::Client.new(
-      :control_address => control_address,
-      :remote_listen_address => remote_listen_address,
-      :tunnel_to_address => tunnel_to_address
-    )
-    client.start
-    client.join
+    RTunnel::Client.new(options).start.join
   end
 end
