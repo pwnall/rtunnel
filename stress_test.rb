@@ -5,7 +5,7 @@ require 'stringio'
 
 require 'lib/core'
 
-CONCURRENT_CONNECTIONS = 10
+CONCURRENT_CONNECTIONS = 5
 DISPLAY_RTUNNEL_OUTPUT = false
 TUNNEL_PORT = 5000
 HTTP_PORT = 4444
@@ -20,23 +20,23 @@ at_exit do
   sleep 999999
 end
 
-module Enumerable
-  def parallel_map
-    self.map do |e|
-      Thread.new(e) do |element|
-        yield element
-      end
-    end.map {|thread| thread.value }
-  end
-end
-
 TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
-EXPECTED_DATA = (0..10*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''
-puts EXPECTED_DATA
+EXPECTED_DATA = (0..16*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''
 
+pid = $$
 fork do
   require 'thin'
-  app = lambda { [200, {}, EXPECTED_DATA] }
+  app = lambda do |env|
+    body = env['rack.input'].string 
+    if body != EXPECTED_DATA
+      puts "received BAD DATA!"
+      p body, EXPECTED_DATA
+      Process.kill 9, $$
+      exit!
+    end
+
+    [200, {}, EXPECTED_DATA]
+  end
   Thin::Server.new('localhost', HTTP_PORT, app).start
 end
 
@@ -54,7 +54,7 @@ module Stresser
 
   def post_init
     @@open_connections += 1
-    send_data "GET / HTTP/1.0\r\n\r\n"
+    send_data "POST / HTTP/1.0\r\nContent-Length: #{EXPECTED_DATA.size}\r\n\r\n#{EXPECTED_DATA}"
     @data = ''
     print '('; $stdout.flush
   end
