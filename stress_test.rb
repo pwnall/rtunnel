@@ -12,39 +12,47 @@ HTTP_PORT = 4444
 
 #################
 
-pids = []
-at_exit do
-  pids.each {|pid| Process.kill 9, pid }
-  p $!
-  puts "done, hit ^C"
-  sleep 999999
+TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
+EXPECTED_DATA = (0..16*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''  # golf for random data
+
+$pids = [$$]
+
+def cleanup
+  puts $!, $@  if $!
+
+  # move the current process to the end of the kill list
+  $pids.delete $$
+  $pids << $$
+  $pids.each {|pid| Process.kill 9, pid  rescue nil }
+
+  exit!
 end
 
-TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
-EXPECTED_DATA = (0..16*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''
+at_exit { cleanup }
 
-pid = $$
-fork do
+ENV['RTUNNEL_DEBUG'] = '1'  if DISPLAY_RTUNNEL_OUTPUT
+
+base_dir = File.dirname(__FILE__)
+$pids << fork{ exec "ruby", "#{base_dir}/rtunnel_server.rb" }
+$pids << fork{ exec "ruby", "#{base_dir}/rtunnel_client.rb", '-c', 'localhost', '-f', TUNNEL_PORT.to_s, '-t', HTTP_PORT.to_s }
+
+$pids << fork do
   require 'thin'
+
   app = lambda do |env|
     body = env['rack.input'].string 
     if body != EXPECTED_DATA
-      puts "received BAD DATA!"
       p body, EXPECTED_DATA
-      Process.kill 9, $$
-      exit!
+      puts "server received BAD DATA!"
+
+      cleanup
     end
 
     [200, {}, EXPECTED_DATA]
   end
+
   Thin::Server.new('localhost', HTTP_PORT, app).start
 end
-
-base_dir = File.dirname(__FILE__)
-
-d = !DISPLAY_RTUNNEL_OUTPUT
-pids << fork{ exec "ruby #{base_dir}/rtunnel_server.rb #{d && '> /dev/null'} 2>&1" }
-pids << fork{ exec "ruby #{base_dir}/rtunnel_client.rb -c localhost -f #{TUNNEL_PORT} -t #{HTTP_PORT} #{d &&' > /dev/null'} 2>&1" }
 
 puts 'wait 2 secs...'
 sleep 2
@@ -66,9 +74,10 @@ module Stresser
 
   def unbind
     if @data.gsub(/\A.+\r\n\r\n/m,'') != EXPECTED_DATA
-      puts "BAD DATA!"
-      puts "response: #{@data.inspect}"
-      exit!
+      p EXPECTED_DATA, @data
+      puts "client received BAD DATA!"
+
+      cleanup
     end
 
     print ')'; $stdout.flush
@@ -78,12 +87,12 @@ module Stresser
   end
 end
 
-$stdout.sync = true
 loop do
   EventMachine.run do
     CONCURRENT_CONNECTIONS.times do
       EventMachine.connect 'localhost', TUNNEL_PORT, Stresser
     end
   end
+
   puts
 end
