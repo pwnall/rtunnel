@@ -6,6 +6,9 @@ class RTunnel::AbstractServer
   include RTunnel::SocketFactory
   include RTunnel::Logging
   
+  
+  ## public interface
+  
   def initialize(address)
     @listen_socket = socket :in_addr => address, :no_delay => true
     @connections_lock = Mutex.new
@@ -34,23 +37,34 @@ class RTunnel::AbstractServer
     @main_thread.join if @main_thread
   end
   
+  
+  ## protected methods
+  
   # Spawn a thread that accepts connections from the listen socket and calls
   # incoming_connections on them.
   # The 
   def spawn_connection_accepter
     logged_thread do
-      loop do
-        @listen_socket.listen 1024
-        conn_socket, conn_sock_addr = @listen_socket.accept
-        incoming_connection conn_socket, conn_sock_addr
-      end
+      @listen_socket.listen 1024
+      begin 
+        loop do
+          conn_socket, conn_sock_addr = @listen_socket.accept
+          incoming_connection conn_socket, conn_sock_addr
+        end
+      rescue IOError
+        # we closed the socket
+      end      
     end    
   end
 
   # Process an incoming connection.
   def incoming_connection(socket, socket_address)
-    D "new incoming connection from #{socket_address}"
+    D "new incoming connection from " +
+        Socket.unpack_sockaddr_in(socket_address).inspect
     conn = register_connection socket
+    D "connection from " +
+        Socket.unpack_sockaddr_in(socket_address).inspect +
+        " received ID #{conn[:id]}"
     spawn_reader conn
     spawn_writer conn
     return conn
@@ -76,6 +90,16 @@ class RTunnel::AbstractServer
     connection
   end
   
+  def close_all_connections
+    connection_ids = @connections_lock.synchronize { @connections.keys }
+    connection_ids.each { close_connection connection_id }
+  end
+
+  # Create the data needed to keep track of a new connection.
+  def new_connection(socket)
+    { :id => new_connection_id, :queue => Queue.new, :sock => socket }
+  end
+  
   # Generate an ID for a new connection.
   def new_connection_id
     @connections_lock.synchronize do
@@ -83,24 +107,23 @@ class RTunnel::AbstractServer
       @connections_next_id += 1
       new_id
     end
-  end
-  
-  def new_connection(socket)
-    { :id => new_connection_id, :queue => Queue.new, :sock => socket }
-  end
+  end  
 
   # Spawn a thread that reads incoming data from a socket and yields the data
   # as it arrives.
-  def spawn_socket_reader(socket)
+  def spawn_socket_reader(socket, &data_processor)
     logged_thread do
       begin
         loop do
           data = socket.readpartial 16384
           yield data      
         end
+      rescue IOError => e
+        # we closed the socket
       rescue Errno::ECONNRESET, EOFError => e
         D "client disconnected (#{e.class.name})"
         yield nil
+        break
       end
     end
   end
@@ -121,16 +144,18 @@ class RTunnel::AbstractServer
     logged_thread do
       socket = connection[:sock]
       queue = connection[:queue]
-      loop do
-        data = queue.pop
-        break unless data
-        begin
+      begin
+        loop do
+          data = queue.pop
+          break unless data
           socket.write data
-        rescue Errno::EPIPE
-          D "broken pipe on #{connection[:id]}"
         end
+      rescue Errno::EPIPE
+        # other end disappeared without disconnecting cleanly
+        D "broken pipe on #{connection[:id]}"
       end
       close_connection connection
+      D "writer thread done on connection #{connection[:id]}"
     end
   end
   
@@ -150,8 +175,8 @@ class RTunnel::AbstractServer
 end
 
 class RTunnel::RemoteListenServer < RTunnel::AbstractServer  
-  def initialize(host, port, control_queue)
-    super(host, port)
+  def initialize(address, control_queue)
+    super(address)
     @control_queue = control_queue
   end
   
@@ -185,12 +210,12 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
 
   def initialize(address)
     super
-    @connection_by_port = {}    
+    @connections_by_port = {}    
   end
   
   def new_connection(socket)
     conn = super
-    conn[:cmd_queue] = RTunnel::ThreadedIOString.new
+    conn[:in_queue] = RTunnel::ThreadedIOString.new
     conn
   end
   
@@ -200,24 +225,23 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   end
   
   def inbound_data(connection, data)
-    connection[:cmd_queue] << data
+    connection[:in_queue] << data
   end
   
   def close_connection(connection_id)
     conn = super
     return unless conn
-    conn[:cmd_queue].writer_close
+    conn[:in_queue].writer_close
   end
   
-  # Spawn a thread processing commands from the connection's conmmand queue.
+  # Spawn a thread processing commands from the connection's inbound queue.
   # The thread is stopped by closing the queue via writer_close.
   def spawn_command_processor(connection)
+    D "processing commands from connection #{connection[:id]}"
     logged_thread do
-      cmd_queue = connection[:cmd_queue]
-      begin
-        while command = Command.decode(cmd_queue)
-          process_command connection, command
-        end
+      cmd_queue = connection[:in_queue]
+      while command = Command.decode(cmd_queue)
+        process_command connection, command
       end
     end
   end
@@ -238,14 +262,15 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def process_remote_listen(connection, address)
     address, port = address.split ':', 2
     
+    listen_server = nil
     @connections_lock.synchronize do
-      close_connection_at_port port, false
+      close_connection_at_port port, true
       
-      listen_server = RemoteListenServer.new(address)
-      @connecions_by_port[port] = listen_server
+      listen_server = RemoteListenServer.new(address, connection[:queue])
+      @connections_by_port[port] = listen_server
       connection[:listen_serv] = listen_server
-      listen_server.start
     end
+    listen_server.start
     D "listening for remote connections on #{address}"
   end
   
@@ -270,12 +295,11 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     end
   end
   
-  def close_connection_at_port(port, already_synchronized = true)
+  def close_connection_at_port(port, already_synchronized = false)
     if already_synchronized
-      if @connections_by_port[port]
-        @connections_by_port.remove port
+      if connection = @connections_by_port.delete(port)
         logged_thread do
-          @connections_by_port[port].stop
+          connection.stop
         end
       end
     else
@@ -298,10 +322,10 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     logged_thread do
       thread_killer = @thread_killer
       loop do
-        break unless thread_killer[0]
+        break if thread_killer[0]
         sleep @ping_interval
         
-        break unless thread_killer[0]
+        break if thread_killer[0]
         connections = @connections_lock.synchronize { @connections.values.dup }
         encoded_ping_command = PingCommand.new.to_encoded_str
         connections.each do |conn|
@@ -347,12 +371,12 @@ class RTunnel::Server
   def self.extract_control_address(address)
     return "0.0.0.0:#{RTunnel::DEFAULT_CONTROL_PORT}" unless address
     host, port = address.split(':', 2)
-    host ||= "0.0.0.0"
-    port ||= DEFAULT_CONTROL_PORT.to_s
+    host = RTunnel.resolve_address(host || "0.0.0.0")
+    port ||= RTunnel::DEFAULT_CONTROL_PORT.to_s
     return "#{host}:#{port}"
   end
   
   def self.extract_ping_interval(interval)
-    interval || 2.0
+    interval || RTunnel::PING_INTERVAL
   end   
 end

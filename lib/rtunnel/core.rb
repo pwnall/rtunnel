@@ -3,6 +3,7 @@ require 'logger'
 module RTunnel
   DEFAULT_CONTROL_PORT = 19050
   PING_TIMEOUT = 10
+  PING_INTERVAL = 2
 
   class AbortProgramException < Exception
     
@@ -48,6 +49,18 @@ module RTunnel::Logging
       end  
     end
   end
+end
+
+module RTunnel
+  # Resolve the given address to an IP.
+  # The address can have the following formats: host; host:port; ip; ip:port;
+  def self.resolve_address(address, timeout_sec = 5)
+    host, rest = address.split(':', 2)
+    ip = timeout(timeout_sec) { Resolv.getaddress(host) }
+    return rest ? "#{ip}:#{rest}" : ip
+  rescue Exception
+    raise AbortProgramException, "Error resolving #{host}" 
+  end  
 end
 
 class IO

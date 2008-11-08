@@ -46,31 +46,21 @@ class RTunnel::Client
   
   ## option processing
   
-  # Resolve the given address to an IP.
-  # The address can have the following formats: host; host:port; ip; ip:port;
-  def self.resolve_address(address, timeout_sec = 5)
-    host, rest = address.split(':', 2)
-    ip = timeout(timeout_sec) { Resolv.getaddress(host) }
-    return rest ? "#{ip}:#{rest}" : ip
-  rescue Exception
-    raise AbortProgramException, "Error resolving #{host}" 
-  end
-  
   def self.extract_control_address(address)
     unless address =~ /:\d+$/
       address = "#{address}:#{RTunnel::DEFAULT_CONTROL_PORT}"
     end
-    resolve_address address
+    RTunnel.resolve_address address
   end
   
   def self.extract_remote_listen_address(address)
     address = "0.0.0.0:#{address}" if address =~ /^\d+$/    
-    resolve_address address
+    RTunnel.resolve_address address
   end
   
   def self.extract_tunnel_to_address(address)
     address = "localhost:#{address}" if address =~ /^\d+$/    
-    resolve_address address
+    RTunnel.resolve_address address
   end
   
   def self.extract_ping_timeout(timeout)
@@ -217,8 +207,12 @@ class RTunnel::Client
           break unless data
           io << data
         end
+      rescue Errno::ECONNRESET, EOFError => e
+        D "server disconnected (#{e.class.name})"
+      rescue IOError => e
+        # we closed the socket
       rescue
-        W "control sock read error: #{$!.inspect}" unless thread_killer[0]
+        W "control sock error - #{$!.class.name}: #{$!}" unless thread_killer[0]
       ensure
         io.writer_close
       end
