@@ -65,10 +65,15 @@ class RTunnel::AbstractServer
     D "connection from " +
         Socket.unpack_sockaddr_in(socket_address).inspect +
         " received ID #{conn[:id]}"
-    spawn_reader conn
-    spawn_writer conn
+    spawn_connection_threads conn
     return conn
-  end  
+  end
+  
+  # Spawn the threads for processing an incoming connection.
+  def spawn_connection_threads(connection)
+    spawn_reader connection
+    spawn_writer connection
+  end
     
   # Register a new incoming connection.
   def register_connection(socket)
@@ -86,13 +91,13 @@ class RTunnel::AbstractServer
   def close_connection(connection_id)
     return nil unless connection = deregister_connection(connection_id)
     connection[:queue] << nil        
-    connection_data[:sock].close
+    connection[:sock].close
     connection
   end
   
   def close_all_connections
     connection_ids = @connections_lock.synchronize { @connections.keys }
-    connection_ids.each { close_connection connection_id }
+    connection_ids.each { |connection_id| close_connection connection_id }
   end
 
   # Create the data needed to keep track of a new connection.
@@ -154,14 +159,14 @@ class RTunnel::AbstractServer
         # other end disappeared without disconnecting cleanly
         D "broken pipe on #{connection[:id]}"
       end
-      close_connection connection
+      closed_connection connection
       D "writer thread done on connection #{connection[:id]}"
     end
   end
   
   # Queue data to be sent through a connection.
   def enqueue_outbound_data(connection_id, data)
-    connection = @connections_lock.synchronize { @connection[connection_id] }
+    connection = @connections_lock.synchronize { @connections[connection_id] }
     if connection
       connection[:queue].push data
     else
@@ -174,7 +179,9 @@ class RTunnel::AbstractServer
   end
 end
 
-class RTunnel::RemoteListenServer < RTunnel::AbstractServer  
+class RTunnel::RemoteListenServer < RTunnel::AbstractServer
+  include RTunnel
+  
   def initialize(address, control_queue)
     super(address)
     @control_queue = control_queue
@@ -184,22 +191,21 @@ class RTunnel::RemoteListenServer < RTunnel::AbstractServer
     UUID.timestamp_create.hexdigest
   end
   
-  def incoming_connection(socket, socket_address)
-    conn = super
-    
-    D "sending create connection command for #{conn[:id]}"
-    
-    @control_queue << ConnectionCreateCommand.new(conn[:id]).to_encoded_str
+  def spawn_connection_threads(connection)
+    D "sending create connection command for #{connection[:id]}"    
+    @control_queue << CreateConnectionCommand.new(connection[:id]).
+                      to_encoded_str
+    super
   end
 
   def inbound_data(connection, data)
-    @control_queue << SendDataCommand.new(conn[:id], data).to_encoded_str
+    @control_queue << SendDataCommand.new(connection[:id], data).to_encoded_str
   end
   
   def closed_connection(connection)
     D "sending close connection command for #{connection[:id]}"
     
-    @control_queue << CloseConnectionCommand.new(conn_id).to_encoded_str
+    @control_queue << CloseConnectionCommand.new(connection[:id]).to_encoded_str
   end
 end
 
@@ -232,8 +238,15 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     conn = super
     return unless conn
     conn[:in_queue].writer_close
+    if port = conn[:port]
+      @connections_lock.synchronize do
+        if @connections_by_port[port] == conn
+          @connections_by_port.delete port
+        end
+      end
+    end
   end
-  
+    
   # Spawn a thread processing commands from the connection's inbound queue.
   # The thread is stopped by closing the queue via writer_close.
   def spawn_command_processor(connection)
@@ -253,14 +266,14 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     when SendDataCommand
       process_send_data(connection, command.connection_id, command.data)
     when CloseConnectionCommand
-      process_close_connection(connection, connection_id)
+      process_close_connection(connection, command.connection_id)
     else
       W "bad command received: #{command.inspect}"
     end
   end
   
   def process_remote_listen(connection, address)
-    address, port = address.split ':', 2
+    port = SocketFactory.port_from_address address
     
     listen_server = nil
     @connections_lock.synchronize do
@@ -269,6 +282,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
       listen_server = RemoteListenServer.new(address, connection[:queue])
       @connections_by_port[port] = listen_server
       connection[:listen_serv] = listen_server
+      connection[:port] = port
     end
     listen_server.start
     D "listening for remote connections on #{address}"
@@ -279,19 +293,17 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     if listen_server
       listen_server.enqueue_outbound_data tunnel_connection_id, data
     else
-      E "send data before opening listen socket on connection #{connection_id}"
+      W "send data before opening listen socket on connection #{tunnel_connection_id}"
     end
   end
   
   def process_close_connection(connection, tunnel_connection_id)
-    listen_server = @connections_lock.synchronize do
-      @tunnel_for_connection_id[tunnel_connection_id]
-    end
+    listen_server = connection[:listen_serv]
     if listen_server
       D "closing remote connection: #{tunnel_connection_id}"
-      listen_server.close_connection connection_id
+      listen_server.close_connection tunnel_connection_id
     else
-      W "request to close unknown connection #{tunnel_connection_id}"
+      W "close connection before opening listening socket on connection #{tunnel_connection_id}"
     end
   end
   

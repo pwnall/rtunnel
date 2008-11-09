@@ -126,8 +126,8 @@ class RTunnel::Client
 
   # CreateConnectionCommand handler
   def process_create_connection(connection_id)
-    connection_id = command.connection_id
-    connection_data = register_new_connection connection_id
+    connection_data = register_connection connection_id
+    D "new connection, id #{connection_id}"
     
     logged_thread do
       begin
@@ -151,13 +151,12 @@ class RTunnel::Client
   
   # SendData handler
   def process_send_data(connection_id, data)
-    @connection_lock.synchronize do
-      if connection_data = @connections[connection_id]
-        connection_data[:queue] << data
-      else
-        W "Received data for non existant connection!"  
-      end
-    end    
+    connection = @connections_lock.synchronize { @connections[connection_id] }
+    if connection
+      connection[:queue] << data
+    else
+      W "Received data for non-existent connection #{connection_id}!"
+    end
   end
   
   # Connect the control socket to the control address on the server.
@@ -222,16 +221,18 @@ class RTunnel::Client
   # Spawn a thread that writes data from a connection's outbound queue to the
   # connection's socket.
   # The thread is terminated by pushing a nil into the connection's queue.
-  def spawn_connection_writer(connection_data)
-    queue = connection_data[:queue]
+  def spawn_connection_writer(connection)
     logged_thread do
+      queue = connection[:queue]
+      sock = connection[:sock]
       while data = queue.pop
-        connection.write data
+        sock.write data
       end
     end
   end
   
-  # Spawn a thread that reads data from 
+  # Spawn a thread that reads data from a connection's socket, and packs it into
+  # SendData commands that are written to the control socket.
   def spawn_connection_reader(connection_data)
     sock = connection_data[:sock]
     connection_id = connection_data[:id]
@@ -241,7 +242,7 @@ class RTunnel::Client
           write_to_control_sock SendDataCommand.new(connection_id, data)
         end
       rescue Exception
-        D "to tunnel closed, closing from tunnel"      
+        D "to tunnel closed, closing from tunnel"
         close_connection connection_id
       end
     end
@@ -249,8 +250,8 @@ class RTunnel::Client
   
   def close_connection(connection_id)
     return unless connection_data = deregister_connection(connection_id)
-    connection_data[:queue] << nil    
-    write_to_control_sock CloseConnectionCommand.new(connection_data[:connection_id])
+    connection_data[:queue] << nil
+    write_to_control_sock CloseConnectionCommand.new(connection_data[:id])
     connection_data[:sock].close
   end
 
@@ -262,13 +263,18 @@ class RTunnel::Client
 
   # Register a new port forwarding connection. This method is thread-safe.
   # Registering a connection keeps track of its socket and outbound queue.
-  def register_connection(connection_id, connection_data)
-    connection_data = { :id => connection_id, :queue => Queue.new, :sock => nil }
-    @connection_lock.synchronize do
+  def register_connection(connection_id)
+    connection_data = new_connection connection_id
+    @connections_lock.synchronize do
       # TODO(costan): check that the connection_id isn't already in use
       @connections[connection_id] = connection_data
     end
     connection_data
+  end
+  
+  # Create the data structure to keep track of a new connection.
+  def new_connection(connection_id)
+    { :id => connection_id, :queue => Queue.new, :sock => nil }
   end
   
   # De-register a port forwarding connection. This method is thread-safe.
