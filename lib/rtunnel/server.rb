@@ -91,7 +91,7 @@ class RTunnel::AbstractServer
   def close_connection(connection_id)
     return nil unless connection = deregister_connection(connection_id)
     connection[:queue] << nil        
-    connection[:sock].close
+    connection[:sock].close rescue nil
     connection
   end
   
@@ -238,6 +238,9 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     conn = super
     return unless conn
     conn[:in_queue].writer_close
+    if listen_server = conn[:listen_serv]
+      listen_server.close
+    end
     if port = conn[:port]
       @connections_lock.synchronize do
         if @connections_by_port[port] == conn
@@ -310,9 +313,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def close_connection_at_port(port, already_synchronized = false)
     if already_synchronized
       if connection = @connections_by_port.delete(port)
-        logged_thread do
-          connection.stop
-        end
+        connection.stop
       end
     else
       @connections_lock.synchronize { close_connection_at_port port, true }
