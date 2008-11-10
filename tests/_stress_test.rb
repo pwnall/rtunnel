@@ -11,7 +11,8 @@ HTTP_PORT = 4444
 #################
 
 TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
-EXPECTED_DATA = Array.new (5*1024) { rand(256).chr }.join ''
+srand(0)  # deterministic random data
+EXPECTED_DATA = (0..16*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''  # golf for random data
 
 $pids = [$$]
 
