@@ -191,22 +191,35 @@ class RTunnel::RemoteListenServer < RTunnel::AbstractServer
     UUID.timestamp_create.hexdigest
   end
   
+  def queue_command(command)
+    command_str = command.to_encoded_str
+    s = StringIO.new; s.write_varsize command_str.length
+    @control_queue << s.string
+    @control_queue << command_str
+  end
+  
   def spawn_connection_threads(connection)
-    D "sending create connection command for #{connection[:id]}"    
-    @control_queue << CreateConnectionCommand.new(connection[:id]).
-                      to_encoded_str
+    D "sending create connection command for #{connection[:id]}"
+    queue_command CreateConnectionCommand.new(connection[:id])
     super
   end
 
   def inbound_data(connection, data)
-    @control_queue << SendDataCommand.new(connection[:id], data).to_encoded_str
+    queue_command SendDataCommand.new(connection[:id], data)
   end
   
   def closed_connection(connection)
     D "sending close connection command for #{connection[:id]}"
     
-    @control_queue << CloseConnectionCommand.new(connection[:id]).to_encoded_str
+    queue_command CloseConnectionCommand.new(connection[:id])
   end
+  
+  # Closes a connection, after writing all the outgoing data
+  def begin_close_connection(connection_id)
+    conn = @connections_lock.synchronize { @connections[connection_id] }
+    return unless conn
+    conn[:queue] << nil
+  end  
 end
 
 class RTunnel::ControlServer < RTunnel::AbstractServer
@@ -233,7 +246,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def inbound_data(connection, data)
     connection[:in_queue] << data
   end
-  
+    
   def close_connection(connection_id)
     conn = super
     return unless conn
@@ -255,8 +268,12 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def spawn_command_processor(connection)
     D "processing commands from connection #{connection[:id]}"
     logged_thread do
-      cmd_queue = connection[:in_queue]
-      while command = Command.decode(cmd_queue)
+      cmd_queue = connection[:in_queue]      
+      loop do
+        command_size = cmd_queue.read_varsize
+        break unless command_size
+        command = Command.decode(cmd_queue)
+        break unless command
         process_command connection, command
       end
     end
@@ -294,6 +311,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
   def process_send_data(connection, tunnel_connection_id, data)    
     listen_server = connection[:listen_serv]
     if listen_server
+      D "data: #{data.length} bytes coming from #{tunnel_connection_id}"
       listen_server.enqueue_outbound_data tunnel_connection_id, data
     else
       W "send data before opening listen socket on connection #{tunnel_connection_id}"
@@ -304,7 +322,7 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     listen_server = connection[:listen_serv]
     if listen_server
       D "closing remote connection: #{tunnel_connection_id}"
-      listen_server.close_connection tunnel_connection_id
+      listen_server.begin_close_connection tunnel_connection_id
     else
       W "close connection before opening listening socket on connection #{tunnel_connection_id}"
     end
@@ -330,6 +348,13 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
     super
   end
 
+  def queue_command(queue, command)
+    command_str = command.to_encoded_str
+    s = StringIO.new; s.write_varsize command_str.length
+    queue << s.string
+    queue << command_str
+  end
+
   # Spawns a thread that pings every connection.
   def spawn_ping_thread
     logged_thread do
@@ -340,9 +365,8 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
         
         break if thread_killer[0]
         connections = @connections_lock.synchronize { @connections.values.dup }
-        encoded_ping_command = PingCommand.new.to_encoded_str
         connections.each do |conn|
-          conn[:queue].push encoded_ping_command
+          queue_command conn[:queue], PingCommand.new
         end
       end
     end

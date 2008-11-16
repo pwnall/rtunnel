@@ -69,6 +69,7 @@ class RTunnel::Command
   def self.decode(io)
     return nil unless code = io.getc
     klass = registry.class_for code.chr
+    return nil unless klass
 
     command = klass.new
     command.initialize_from_io io

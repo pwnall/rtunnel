@@ -13,7 +13,7 @@ end
 module RTunnel::Logging
   def init_log(options = {})
     # TODO(costan): parse logging options
-    @log = Logger.new STDERR
+    @log = options[:to].instance_variable_get(:@log) || Logger.new(STDERR)
     @log.level = Logger::DEBUG
   end
   

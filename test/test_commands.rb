@@ -3,7 +3,7 @@ require 'test/unit'
 
 class CommandsTest < Test::Unit::TestCase
   def setup
-    @str = RTunnel::IOString.new
+    @str = StringIO.new
     @test_id1 = "1029384756ALSKDJFH"
     @test_id2 = "ALSKDJFH1029384756"
     @test_address = "192.168.43.95"
@@ -59,6 +59,7 @@ class CommandsTest < Test::Unit::TestCase
     define_method "test_#{cmd}_encode" do
       command = self.send "generate_#{cmd}"
       command.encode @str
+      @str.rewind
       self.send "verify_#{cmd}"
       assert_equal "", @str.read, "Command #{cmd} did not consume its entire outpt"
     end
@@ -66,6 +67,7 @@ class CommandsTest < Test::Unit::TestCase
     define_method "test_#{cmd}_to_encoded_str" do
       command = self.send "generate_#{cmd}"
       command.encode @str
+      @str.rewind
       assert_equal @str.read, command.to_encoded_str
     end    
   end
@@ -73,6 +75,7 @@ class CommandsTest < Test::Unit::TestCase
   def test_all_encodes
     sequence = [:create, :ping, :listen, :ping, :send, :send, :ping, :ping, :send, :close]
     sequence.each { |cmd| self.send("generate_#{cmd}").encode @str }
+    @str.rewind
     sequence.each { |cmd| self.send "verify_#{cmd}" }
     assert_equal "", @str.read
   end

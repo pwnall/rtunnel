@@ -1,5 +1,8 @@
 require 'optparse'
 
+require 'rubygems'
+require 'eventmachine'
+
 module RTunnel
   def self.run_client
     options = {}
@@ -21,6 +24,8 @@ module RTunnel
                       
     (puts opts; return) unless mandatory_keys.all? { |key| options[key] }
     
-    RTunnel::Client.new(options).start.join
+    EventMachine::run do
+      RTunnel::Client.new(options).start
+    end
   end
 end
