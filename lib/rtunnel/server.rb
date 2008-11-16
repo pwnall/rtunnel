@@ -1,6 +1,56 @@
 require 'rubygems'
-gem 'uuidtools', '>=1.0.2'
+require 'eventmachine'
 require 'uuidtools'
+
+# The RTunnel server class, managing control and connection servers.
+class RTunnel::Server
+  include RTunnel::Logging
+  
+  def initialize(options = {})
+    process_options options
+    init_log 
+    
+  end
+  
+  def start
+    @control_server = RTunnel::ControlServer.new @control_address
+    @control_server.ping_interval = @ping_interval
+
+    @control_server.start
+    self
+  end
+ 
+  def join
+    @control_server.join
+  end
+ 
+  def stop
+    @control_server.stop
+  end
+  
+  ## option processing
+  
+  def process_options(options)
+    [:control_address, :ping_interval].each do |opt|
+      instance_variable_set "@#{opt}".to_sym,
+          RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
+    end
+  end
+
+  def self.extract_control_address(address)
+    return "0.0.0.0:#{RTunnel::DEFAULT_CONTROL_PORT}" unless address
+    host, port = address.split(':', 2)
+    host = RTunnel.resolve_address(host || "0.0.0.0")
+    port ||= RTunnel::DEFAULT_CONTROL_PORT.to_s
+    return "#{host}:#{port}"
+  end
+  
+  def self.extract_ping_interval(interval)
+    interval || RTunnel::PING_INTERVAL
+  end   
+end
+
+
 
 class RTunnel::AbstractServer
   include RTunnel::SocketFactory
@@ -374,46 +424,3 @@ class RTunnel::ControlServer < RTunnel::AbstractServer
 end
 
 
-# The RTunnel server class, managing control and connection servers.
-class RTunnel::Server
-  def initialize(options = {})
-    process_options options    
-  end
-  
-  def start
-    @control_server = RTunnel::ControlServer.new @control_address
-    @control_server.ping_interval = @ping_interval
-
-    @control_server.start
-    self
-  end
- 
-  def join
-    @control_server.join
-  end
- 
-  def stop
-    @control_server.stop
-  end
-  
-  ## option processing
-  
-  def process_options(options)
-    [:control_address, :ping_interval].each do |opt|
-      instance_variable_set "@#{opt}".to_sym,
-          RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
-    end
-  end
-
-  def self.extract_control_address(address)
-    return "0.0.0.0:#{RTunnel::DEFAULT_CONTROL_PORT}" unless address
-    host, port = address.split(':', 2)
-    host = RTunnel.resolve_address(host || "0.0.0.0")
-    port ||= RTunnel::DEFAULT_CONTROL_PORT.to_s
-    return "#{host}:#{port}"
-  end
-  
-  def self.extract_ping_interval(interval)
-    interval || RTunnel::PING_INTERVAL
-  end   
-end

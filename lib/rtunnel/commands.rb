@@ -1,3 +1,5 @@
+require 'stringio'
+
 class RTunnel::Command  
   # Associates command codes with the classes implementing them.
   class Registry
@@ -60,9 +62,9 @@ class RTunnel::Command
   
   # Produce a string with an encoding of this command.
   def to_encoded_str
-    io_str = RTunnel::IOString.new
-    self.encode io_str
-    return io_str.read
+    string_io = StringIO.new
+    self.encode string_io
+    return string_io.string
   end
 
   # Decode a Command instance from a IO / IOString.

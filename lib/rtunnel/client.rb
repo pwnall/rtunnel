@@ -67,21 +67,6 @@ class RTunnel::Client
   end  
 end
 
-module RTunnel::CommandProtocol  
-  include RTunnel::FrameProtocol
-  
-  # Sends an encoded RTunnel command as a frame.
-  def send_command(command)
-    send_frame command.to_encoded_str
-  end
-  
-  # Decodes a frame into an RTunnel command.
-  def receive_frame(frame)
-    command = RTunnel::Command.decode StringIO.new(frame)
-    receive_command command
-  end  
-end
-
 
 class RTunnel::Client::ServerConnection < EventMachine::Connection
   # Note: I would've loved to make this a module, but event_machine's
@@ -242,69 +227,4 @@ class RTunnel::Client::TunnelConnection < EventMachine::Connection
   def unbind
     @server_connection.data_connection_closed @connection_id
   end
-end
-
-class RTunnel::Client0
-  
-  ## control connection management
-
-  def spawn_main_thread
-    @main_thread = logged_thread do
-      thread_killer = @thread_killer
-      loop do
-        break if thread_killer[0]        
-        disable_ping_timeouts
-        unless connect_control_sock
-          sleep 1
-          next
-        end
-        enable_ping_timeouts
-
-        break if thread_killer[0]        
-        send_listen_command
-        
-        break if thread_killer[0]        
-        process_commands
-      end
-      close_all_connections      
-    end
-  end
-  
-  # Loop and process commands coming from the control connection.
-  def process_commands
-    cmd_queue = ThreadedIOString.new
-    spawn_control_sock_reader cmd_queue
-    
-    while !@thread_killer[0] && (command = Command.decode(cmd_queue))
-      process_command command
-    end
-  end
-  
-  
-  # Connect the control socket to the control address on the server.
-  def connect_control_sock
-    I "connecting to control address (#{@control_address})"
-    @control_sock = begin
-      timeout(5) do
-        socket :out_addr => @control_address, :no_delay => true
-      end
-    rescue Timeout::Error
-      W "timeout connecting to control address"
-      return false
-    rescue SystemCallError
-      W "connect() failure while connecting to control address"
-      return false
-    end
-    return true
-  end
-  
-  
-  ## connection management
-    
-  # Close all the port forwarding connections (not the control connection.)
-  def close_all_connections
-    connection_ids = @connections_lock.synchronize { @connections.keys }
-    connection_ids.each { |connection_id| close_connection connection_id }
-  end
-
 end
