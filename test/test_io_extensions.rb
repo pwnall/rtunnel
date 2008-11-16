@@ -1,4 +1,7 @@
+require 'rtunnel'
+
 require 'stringio'
+require 'test/unit'
 
 class IOExtensionsTest < Test::Unit::TestCase  
   def setup
@@ -28,10 +31,12 @@ class IOExtensionsTest < Test::Unit::TestCase
   
   def test_varsize_error
     @str.write_varsize((1 << 62) / 3)
-    vs = @str.read
+    vs = @str.string
     0.upto(vs.length - 1) do |truncated_len|
-      @str.append vs[0, truncated_len]
-      assert_raise(RuntimeError) { @str.read_varsize }
+      @str = StringIO.new
+      @str.write vs[0, truncated_len]
+      @str.rewind
+      assert_raise(RTunnel::TruncatedDataError) { @str.read_varsize }
     end
   end
   
@@ -52,10 +57,14 @@ class IOExtensionsTest < Test::Unit::TestCase
     end    
   end
 
-  def test_varsize_error
-    @str.write_varsize((1 << 62) / 3)
-    vs = @str.read
-    @str.write vs[0, vs.length - 1]
-    assert_raise(RuntimeError) { @str.read_varsize }
+  def test_varstring_error
+    @str.write_varstring 'This will be truncated'
+    vs = @str.string
+    0.upto(vs.length - 1) do |truncated_len|
+      @str = StringIO.new
+      @str.write vs[0, truncated_len]
+      @str.rewind
+      assert_raise(RTunnel::TruncatedDataError) { @str.read_varstring }
+    end
   end
 end

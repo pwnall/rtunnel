@@ -18,6 +18,9 @@ module RTunnel
       o.on("-t", "--tunnel-to ADDRESS") do |a|
         options[:tunnel_to_address] = a
       end
+      o.on("-l", "--log-level LEVEL") do |l|
+        options[:log_level] = l
+      end
     end).parse!  rescue (puts opts; return)
     
     mandatory_keys = [:control_address, :remote_listen_address,

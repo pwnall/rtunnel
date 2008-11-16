@@ -1,5 +1,6 @@
-require 'resolv'
 require 'rtunnel'
+
+require 'resolv'
 require 'test/unit'
 
 class ServerTest < Test::Unit::TestCase

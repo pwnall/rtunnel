@@ -17,9 +17,8 @@ class RTunnel::Server
   def initialize(options = {})
     process_options options
     @tunnel_listeners = {}
+    @tunnel_listeners_onclose = {}
     @tunnel_connections = {}
-    
-    init_log
   end
   
   def start
@@ -45,7 +44,11 @@ class RTunnel::Server
   # the current listener is closed, and the new listener is created after the
   # old listener is closed.
   def create_tunnel_listener(listen_port, &creation_block)
-    # TODO(victor): implement this correctly
+    if @tunnel_listeners[listen_port]
+      # TODO(victor): implement this correctly
+      EventMachine::stop_server @tunnel_listeners[listen_port]
+    end
+    
     @tunnel_listeners[listen_port] = yield
   end
   
@@ -76,6 +79,8 @@ class RTunnel::Server
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
+    
+    init_log :level => options[:log_level]    
   end
 
   def self.extract_control_address(address)
@@ -105,16 +110,20 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     
     @server = server
     @tunnel_connections = server.tunnel_connections
+    @listener = nil
+    @peer_name = nil
     
     init_log :to => @server
   end
   
   def post_init
-    D "Established connection with #{Socket.unpack_sockaddr_in(get_peername)}"
+    @client_port, @client_host = *Socket.unpack_sockaddr_in(get_peername)
+    D "Established connection with #{@client_host} port #{@client_port}"
     enable_pinging
   end
   
   def unbind
+    D "Lost connection from #{@client_host} port #{@client_port}"    
     disable_pinging
   end
   
@@ -140,9 +149,9 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     
     D "Creating listener for #{listen_host} port #{listen_port}"
     @server.create_tunnel_listener listen_port do
-      EventMachine::start_server listen_host, listen_port,
-                                 Server::TunnelConnection, self,
-                                 listen_host, listen_port
+      @listener = EventMachine::start_server listen_host, listen_port,
+                                             Server::TunnelConnection, self,
+                                             listen_host, listen_port
     end
     
     D "Listening on #{listen_host} port #{listen_port}"
@@ -223,7 +232,7 @@ class RTunnel::Server::TunnelConnection < EventMachine::Connection
   
   def close_from_tunnel
     @tunnel_closed = true
-    close_after_writing
+    close_connection_after_writing
   end
   
   def receive_data(data)

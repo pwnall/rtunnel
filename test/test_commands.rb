@@ -1,7 +1,8 @@
+require 'rtunnel'
+
 require 'stringio'
 require 'test/unit'
 
-require 'rtunnel'
 require 'test/command_stubs.rb'
 
 class CommandsTest < Test::Unit::TestCase

@@ -16,9 +16,7 @@ class RTunnel::Client
   attr_reader :server_connection
   
   def initialize(options = {})
-    process_options options
-    
-    init_log
+    process_options options    
   end
 
   def start
@@ -34,6 +32,16 @@ class RTunnel::Client
   end
   
   ## option processing
+  
+  def process_options(options)
+    [:control_address, :remote_listen_address, :tunnel_to_address,
+     :ping_timeout].each do |opt|
+      instance_variable_set "@#{opt}".to_sym,
+          RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
+    end
+    
+    init_log :level => options[:log_level]    
+  end  
   
   def self.extract_control_address(address)
     unless SocketFactory.port_from_address address
@@ -57,14 +65,6 @@ class RTunnel::Client
   def self.extract_ping_timeout(timeout)
     timeout || RTunnel::PING_TIMEOUT
   end
-
-  def process_options(options)
-    [:control_address, :remote_listen_address, :tunnel_to_address,
-     :ping_timeout].each do |opt|
-      instance_variable_set "@#{opt}".to_sym,
-          RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
-    end
-  end  
 end
 
 # Connection to the server's control port.
@@ -101,7 +101,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     # wait for a second, then try connecting again
     W 'Lost server connection, will reconnect in 1s'
     EventMachine::add_timer(1.0) { client.connect_to_server }
-    @connections.each { |conn_id, conn| conn.close_after_writing }
+    @connections.each { |conn_id, conn| conn.close_connection_after_writing }
     @connections.clear
   end
   

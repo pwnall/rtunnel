@@ -1,4 +1,5 @@
 require 'rtunnel'
+
 require 'test/unit'
 
 class SocketFactoryTest < Test::Unit::TestCase

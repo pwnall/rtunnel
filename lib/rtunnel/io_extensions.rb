@@ -1,5 +1,7 @@
 require 'stringio'
 
+class RTunnel::TruncatedDataError < Exception; end
+
 module RTunnel::IOExtensions
   # writes a size (non-negative Integer) to the stream using a varint encoding
   def write_varsize(size)
@@ -19,7 +21,9 @@ module RTunnel::IOExtensions
     loop do
       char = getc
       # TODO(costan): better exception
-      raise RuntimeError, "Encoded varint truncated" unless char
+      unless char
+        raise RTunnel::TruncatedDataError.new("Encoded varsize truncated")
+      end
       more, size_add = char.divmod(0x80)
       size += size_add * multiplier
       break if more == 0
@@ -40,8 +44,7 @@ module RTunnel::IOExtensions
     str = read length
     return '' if length == 0
     if !str || str.length != length
-      # TODO(costan): better exception
-      raise RuntimeError, "Variable-length string was truncated"
+      raise RTunnel::TruncatedDataError.new("Encoded varstring truncated")
     else
       return str
     end

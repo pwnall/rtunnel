@@ -13,8 +13,15 @@ end
 module RTunnel::Logging
   def init_log(options = {})
     # TODO(costan): parse logging options
-    @log = options[:to].instance_variable_get(:@log) || Logger.new(STDERR)
-    @log.level = Logger::DEBUG
+    if options[:to]
+      @log = options[:to].instance_variable_get(:@log).dup
+    else
+      @log = Logger.new(STDERR)
+      @log.level = Logger::ERROR
+    end
+    if options[:level]
+      @log.level = Logger::const_get(options[:level].upcase.to_sym)
+    end
   end
   
   def D(message)
@@ -36,19 +43,6 @@ module RTunnel::Logging
   def F(message)
     @log.fatal message
   end
-
-  # creates a thread that will not die silently if an error occurs;
-  # the error will be logged 
-  def logged_thread(*args)
-    Thread.new *args do |*thread_args|
-      begin
-        yield *thread_args
-      rescue Exception => e
-        E "Worker thread exception - #{e.inspect}"
-        D "Stack trace:\n" + e.backtrace.join("\n")
-      end  
-    end
-  end
 end
 
 module RTunnel
@@ -61,20 +55,4 @@ module RTunnel
   rescue Exception
     raise AbortProgramException, "Error resolving #{host}" 
   end  
-end
-
-class IO
-  def read_or_timeout(timeout = 5, read_size = 1024)
-    timeout(timeout) { self.read(read_size) }
-  rescue Timeout::Error
-    ''
-  rescue
-    nil
-  end
-end
-
-class UUID
-  def self.t
-    timestamp_create.hexdigest
-  end
 end

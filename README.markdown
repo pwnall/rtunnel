@@ -22,17 +22,6 @@ on your local machine:
 
 This would reverse tunnel myserver.com:4000 to localhost:3000 so that if you had a web server running at port 3000 on your local machine, anyone on the internet could access it by going to http://myserver.com:4000
 
-**News**
-
-  * 0.3.6 released, new protocol
-  * created gem for easier installation
-  * 0.2.1 released, minor bugfix, cmdline options change
-  * 0.2.0 released, much simpler
-  * 0.1.2 released
-  * Created rtunnel_server binary for linux so you don't need Ruby installed on the host you want to reverse tunnel from
-  * 0.1.1 released
-  * Added default control port of 19050, no longer have to specify this on client or server unless you care to change it
-
 RTunnel?
 -
 

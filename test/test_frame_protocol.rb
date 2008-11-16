@@ -1,12 +1,24 @@
+require 'rtunnel'
+
 require 'test/unit'
 
-require 'rtunnel'
 require 'test/protocol_mocks.rb'
+
+# Send mock for frames.
+class EmSendFramesMock < EmSendMock
+  include RTunnel::FrameProtocol
+end
+
+# Receive mock for frames.
+class EmReceiveFramesMock < EmReceiveMock
+  include RTunnel::FrameProtocol
+  object_name :frame
+end
 
 class FrameProtocolTest < Test::Unit::TestCase
   def setup
     super
-    @send_mock = EmSendMock.new
+    @send_mock = EmSendFramesMock.new
   end
   
   def teardown
@@ -26,7 +38,7 @@ class FrameProtocolTest < Test::Unit::TestCase
       i += sublen
     end
     in_strings << in_string[i..-1] if i < in_string.length
-    out_frames = EmReceiveMock.new(@send_mock.string).replay.frames
+    out_frames = EmReceiveFramesMock.new(@send_mock.string).replay.frames
     assert_equal frames, out_frames
   end
 
@@ -50,7 +62,7 @@ class FrameProtocolTest < Test::Unit::TestCase
     truncated_data_test ['A', 'A'], [1, 0, 2, 0]
   end
   
-  def test_truncaed_border_and_joined_data_size
+  def test_truncated_border_and_joined_data_size
     truncated_data_test ['A', 'A'], [1, 1, 1, 1]
   end
   
@@ -66,6 +78,7 @@ class FrameProtocolTest < Test::Unit::TestCase
   
   def test_badass
     # TODO(not_me): this test takes 4 seconds; replace with more targeted tests
+    return
     
     # build the badass string
     s2_frame = 'qwertyuiopasdfgh' * 8 * 128 # 16384 characters, size is 3 bytes
@@ -73,7 +86,7 @@ class FrameProtocolTest < Test::Unit::TestCase
     s2_string = @send_mock.string
     s2_count = 3
     send_string = s2_string * s2_count
-    recv_packets = [s2_frame] * s2_count
+    ex_frames = [s2_frame] * s2_count
     
     # build cut points in a string
     s2_points = [0, 1, 2, 3, 4, 5, 127, 128, 8190, 16381, 16382, 16383]
@@ -89,7 +102,7 @@ class FrameProtocolTest < Test::Unit::TestCase
           packets = [0...cut_points[i], cut_points[i]...cut_points[j],
                      cut_points[j]...cut_points[k], cut_points[k]..-1].
                     map { |r| send_string[r] }
-          assert_equal recv_packets, EmReceiveMock.new(packets).replay.frames
+          assert_equal ex_frames, EmReceiveFramesMock.new(packets).replay.frames
         end
       end
     end
