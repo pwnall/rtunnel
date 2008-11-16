@@ -20,6 +20,7 @@ class RTunnel::Client
   end
 
   def start
+    return if @server_connection
     @control_host = SocketFactory.host_from_address @control_address
     @control_port = SocketFactory.port_from_address @control_address
     connect_to_server
@@ -29,6 +30,12 @@ class RTunnel::Client
     D "Connecting to #{@control_host} port #{@control_port}"
     @server_connection = EventMachine::connect @control_host, @control_port,
                                                Client::ServerConnection, self
+  end
+  
+  def stop
+    return unless @server_connection
+    @server_connection.close_connection_after_writing
+    @server_connection = nil
   end
   
   ## option processing

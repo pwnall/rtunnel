@@ -22,6 +22,7 @@ class RTunnel::Server
   end
   
   def start
+    return if @control_listener
     @control_host = SocketFactory.host_from_address @control_address
     @control_port = SocketFactory.port_from_address @control_address
     start_server
@@ -30,6 +31,7 @@ class RTunnel::Server
   def stop
     return unless @control_listener
     EventMachine::stop_server @control_listener
+    @control_listener = nil
   end
   
   def start_server

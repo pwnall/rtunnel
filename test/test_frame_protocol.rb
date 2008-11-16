@@ -78,7 +78,6 @@ class FrameProtocolTest < Test::Unit::TestCase
   
   def test_badass
     # TODO(not_me): this test takes 4 seconds; replace with more targeted tests
-    return
     
     # build the badass string
     s2_frame = 'qwertyuiopasdfgh' * 8 * 128 # 16384 characters, size is 3 bytes

@@ -48,7 +48,7 @@ class ScenarioConnection < EventMachine::Connection
     while @step < @scenario.length
       case @scenario[@step].first
       when :proc
-        proc.call
+        @scenario[@step].last.call
       when :send
         send_data @scenario[@step].last        
       else

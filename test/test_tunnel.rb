@@ -67,4 +67,32 @@ class TunnelTest < Test::Unit::TestCase
       end
     end    
   end
+  
+  def test_two_tunnels
+    start_second = proc do
+      print "In proc\n"
+      EventMachine::add_timer(@connection_time) do
+        @tunnel_client.stop
+        @tunnel_client.start
+        EventMachine::add_timer(@connection_time) do
+          EventMachine::connect @local_host, @listen_port,
+              ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
+                                         [:close], [:stop]]
+        end
+      end      
+    end
+    
+    tunnel_test do      
+      EventMachine::start_server @local_host, @tunnel_port,
+          ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
+                                     [:unbind]]
+                                     
+      EventMachine::add_timer(@connection_time) do
+        print "Starting client\n"
+        EventMachine::connect @local_host, @listen_port,
+            ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
+                                       [:proc, start_second], [:close]]
+      end
+    end
+  end
 end
