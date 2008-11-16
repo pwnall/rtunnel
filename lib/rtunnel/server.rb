@@ -1,32 +1,73 @@
+require 'set'
+
 require 'rubygems'
 require 'eventmachine'
 require 'uuidtools'
 
+
 # The RTunnel server class, managing control and connection servers.
 class RTunnel::Server
+  include RTunnel
   include RTunnel::Logging
+  
+  attr_reader :control_address, :control_host, :control_port
+  attr_reader :ping_interval
+  attr_reader :tunnel_connections
   
   def initialize(options = {})
     process_options options
-    init_log 
+    @tunnel_listeners = {}
+    @tunnel_connections = {}
     
+    init_log
   end
   
   def start
-    @control_server = RTunnel::ControlServer.new @control_address
-    @control_server.ping_interval = @ping_interval
-
-    @control_server.start
-    self
+    @control_host = SocketFactory.host_from_address @control_address
+    @control_port = SocketFactory.port_from_address @control_address
+    start_server
   end
- 
-  def join
-    @control_server.join
-  end
- 
+  
   def stop
-    @control_server.stop
+    return unless @control_listener
+    EventMachine::stop_server @control_listener
   end
+  
+  def start_server
+    D "Control server on #{@control_host} port #{@control_port}"
+    @control_listener = EventMachine::start_server @control_host, @control_port,
+                                                   Server::ControlConnection,
+                                                   self
+  end
+  
+  # Creates a listener on a certain port. The given block should create and
+  # return the listener. If a listener is already active on the given port,
+  # the current listener is closed, and the new listener is created after the
+  # old listener is closed.
+  def create_tunnel_listener(listen_port, &creation_block)
+    # TODO(victor): implement this correctly
+    @tunnel_listeners[listen_port] = yield
+  end
+  
+  # Creates a string ID that is guaranteed to be unique across the server,
+  # and hard to guess.
+  def new_connection_id
+    # TODO(not_me): UUIDs don't have 128 bits of entropy, because they
+    #               contain the MAC, etc; upgrade to encrypting sequence numbers
+    #               with an AES key generated @ server startup
+    UUID.timestamp_create.hexdigest
+  end
+
+  # Registers a tunnel connection, so it can receive data.
+  def register_tunnel_connection(connection)
+    @tunnel_connections[connection.connection_id] = connection
+  end
+  
+  # De-registers a tunnel connection.
+  def deregister_tunnel_connection(connection)
+    @tunnel_connections.delete connection.connection_id
+  end
+  
   
   ## option processing
   
@@ -51,376 +92,142 @@ class RTunnel::Server
 end
 
 
-
-class RTunnel::AbstractServer
-  include RTunnel::SocketFactory
+# A client connection to the server's control port.
+class RTunnel::Server::ControlConnection < EventMachine::Connection
+  include RTunnel
+  include RTunnel::CommandProtocol
   include RTunnel::Logging
+
+  attr_reader :server
   
-  
-  ## public interface
-  
-  def initialize(address)
-    @listen_socket = socket :in_addr => address, :no_delay => true
-    @connections_lock = Mutex.new
-    @connections = {}
-    @connections_next_id = 1
-    @main_thread = nil
+  def initialize(server)
+    super()
     
-    init_log
-  end
+    @server = server
+    @tunnel_connections = server.tunnel_connections
     
-  # Start the server. The processing will happen in another thread. 
-  def start
-    @main_thread = spawn_connection_accepter
-    self
-  end
-
-  # Stop all the threads and close all the connections.
-  def stop
-    @listen_socket.close
-    close_all_connections
-    self
+    init_log :to => @server
   end
   
-  # Block until the server is stopped.
-  def join
-    @main_thread.join if @main_thread
+  def post_init
+    D "Established connection with #{Socket.unpack_sockaddr_in(get_peername)}"
+    enable_pinging
+  end
+  
+  def unbind
+    disable_pinging
   end
   
   
-  ## protected methods
+  ## Command processing
   
-  # Spawn a thread that accepts connections from the listen socket and calls
-  # incoming_connections on them.
-  # The 
-  def spawn_connection_accepter
-    logged_thread do
-      @listen_socket.listen 1024
-      begin 
-        loop do
-          conn_socket, conn_sock_addr = @listen_socket.accept
-          incoming_connection conn_socket, conn_sock_addr
-        end
-      rescue IOError
-        # we closed the socket
-      end      
-    end    
-  end
-
-  # Process an incoming connection.
-  def incoming_connection(socket, socket_address)
-    D "new incoming connection from " +
-        Socket.unpack_sockaddr_in(socket_address).inspect
-    conn = register_connection socket
-    D "connection from " +
-        Socket.unpack_sockaddr_in(socket_address).inspect +
-        " received ID #{conn[:id]}"
-    spawn_connection_threads conn
-    return conn
-  end
-  
-  # Spawn the threads for processing an incoming connection.
-  def spawn_connection_threads(connection)
-    spawn_reader connection
-    spawn_writer connection
-  end
-    
-  # Register a new incoming connection.
-  def register_connection(socket)
-    conn = new_connection socket
-    @connections_lock.synchronize { @connections[conn[:id]] = conn }
-    return conn
-  end
-
-  # Stop keeping track of an incoming connection.
-  def deregister_connection(connection_id)
-    @connections_lock.synchronize { @connections.delete connection_id }
-  end
-
-  # Close an incoming connection.
-  def close_connection(connection_id)
-    return nil unless connection = deregister_connection(connection_id)
-    connection[:queue] << nil        
-    connection[:sock].close rescue nil
-    connection
-  end
-  
-  def close_all_connections
-    connection_ids = @connections_lock.synchronize { @connections.keys }
-    connection_ids.each { |connection_id| close_connection connection_id }
-  end
-
-  # Create the data needed to keep track of a new connection.
-  def new_connection(socket)
-    { :id => new_connection_id, :queue => Queue.new, :sock => socket }
-  end
-  
-  # Generate an ID for a new connection.
-  def new_connection_id
-    @connections_lock.synchronize do
-      new_id = @connections_next_id
-      @connections_next_id += 1
-      new_id
-    end
-  end  
-
-  # Spawn a thread that reads incoming data from a socket and yields the data
-  # as it arrives.
-  def spawn_socket_reader(socket, &data_processor)
-    logged_thread do
-      begin
-        loop do
-          data = socket.readpartial 16384
-          yield data      
-        end
-      rescue IOError => e
-        # we closed the socket
-      rescue Errno::ECONNRESET, EOFError => e
-        D "client disconnected (#{e.class.name})"
-        yield nil
-        break
-      end
-    end
-  end
-
-  # Spawn a thread that reads incoming data from a connection and calls
-  # inbound_data when data arrives.
-  # The thread is stopped by closing the connection.
-  def spawn_reader(connection)
-    spawn_socket_reader connection[:sock] do |data|
-      data ? inbound_data(connection, data) : closed_connection(connection)
-    end
-  end
-  
-  # Spawn a thread that moves data from a connection's outbound queue to its
-  # socket.
-  # The thread is stopped by enqueuing a nil to the outbound queue.
-  def spawn_writer(connection)
-    logged_thread do
-      socket = connection[:sock]
-      queue = connection[:queue]
-      begin
-        loop do
-          data = queue.pop
-          break unless data
-          socket.write data
-        end
-      rescue Errno::EPIPE
-        # other end disappeared without disconnecting cleanly
-        D "broken pipe on #{connection[:id]}"
-      end
-      closed_connection connection
-      D "writer thread done on connection #{connection[:id]}"
-    end
-  end
-  
-  # Queue data to be sent through a connection.
-  def enqueue_outbound_data(connection_id, data)
-    connection = @connections_lock.synchronize { @connections[connection_id] }
-    if connection
-      connection[:queue].push data
-    else
-      W "request to send data to unknown connection #{connection_id}"
-    end
-  end
-  
-  def closed_connection(connection)
-    close_connection connection
-  end
-end
-
-class RTunnel::RemoteListenServer < RTunnel::AbstractServer
-  include RTunnel
-  
-  def initialize(address, control_queue)
-    super(address)
-    @control_queue = control_queue
-  end
-  
-  def new_connection_id
-    UUID.timestamp_create.hexdigest
-  end
-  
-  def queue_command(command)
-    command_str = command.to_encoded_str
-    s = StringIO.new; s.write_varsize command_str.length
-    @control_queue << s.string
-    @control_queue << command_str
-  end
-  
-  def spawn_connection_threads(connection)
-    D "sending create connection command for #{connection[:id]}"
-    queue_command CreateConnectionCommand.new(connection[:id])
-    super
-  end
-
-  def inbound_data(connection, data)
-    queue_command SendDataCommand.new(connection[:id], data)
-  end
-  
-  def closed_connection(connection)
-    D "sending close connection command for #{connection[:id]}"
-    
-    queue_command CloseConnectionCommand.new(connection[:id])
-  end
-  
-  # Closes a connection, after writing all the outgoing data
-  def begin_close_connection(connection_id)
-    conn = @connections_lock.synchronize { @connections[connection_id] }
-    return unless conn
-    conn[:queue] << nil
-  end  
-end
-
-class RTunnel::ControlServer < RTunnel::AbstractServer
-  include RTunnel
-  
-  attr_accessor :ping_interval
-
-  def initialize(address)
-    super
-    @connections_by_port = {}    
-  end
-  
-  def new_connection(socket)
-    conn = super
-    conn[:in_queue] = RTunnel::ThreadedIOString.new
-    conn
-  end
-  
-  def incoming_connection(socket, socket_address)
-    conn = super
-    spawn_command_processor conn
-  end
-  
-  def inbound_data(connection, data)
-    connection[:in_queue] << data
-  end
-    
-  def close_connection(connection_id)
-    conn = super
-    return unless conn
-    conn[:in_queue].writer_close
-    if listen_server = conn[:listen_serv]
-      listen_server.close
-    end
-    if port = conn[:port]
-      @connections_lock.synchronize do
-        if @connections_by_port[port] == conn
-          @connections_by_port.delete port
-        end
-      end
-    end
-  end
-    
-  # Spawn a thread processing commands from the connection's inbound queue.
-  # The thread is stopped by closing the queue via writer_close.
-  def spawn_command_processor(connection)
-    D "processing commands from connection #{connection[:id]}"
-    logged_thread do
-      cmd_queue = connection[:in_queue]      
-      loop do
-        command_size = cmd_queue.read_varsize
-        break unless command_size
-        command = Command.decode(cmd_queue)
-        break unless command
-        process_command connection, command
-      end
-    end
-  end
-  
-  def process_command(connection, command)
+  def receive_command(command)
     case command
     when RemoteListenCommand
-      process_remote_listen(connection, command.address)
+      process_remote_listen(command.address)
     when SendDataCommand
-      process_send_data(connection, command.connection_id, command.data)
+      process_send_data(command.connection_id, command.data)
     when CloseConnectionCommand
-      process_close_connection(connection, command.connection_id)
+      process_close_connection(command.connection_id)
     else
-      W "bad command received: #{command.inspect}"
+      W "Unexpected command: #{command.inspect}"
     end
   end
   
-  def process_remote_listen(connection, address)
-    port = SocketFactory.port_from_address address
+  def process_remote_listen(address)
+    listen_host = SocketFactory.host_from_address address
+    listen_port = SocketFactory.port_from_address address
     
-    listen_server = nil
-    @connections_lock.synchronize do
-      close_connection_at_port port, true
-      
-      listen_server = RemoteListenServer.new(address, connection[:queue])
-      @connections_by_port[port] = listen_server
-      connection[:listen_serv] = listen_server
-      connection[:port] = port
+    D "Creating listener for #{listen_host} port #{listen_port}"
+    @server.create_tunnel_listener listen_port do
+      EventMachine::start_server listen_host, listen_port,
+                                 Server::TunnelConnection, self,
+                                 listen_host, listen_port
     end
-    listen_server.start
-    D "listening for remote connections on #{address}"
+    
+    D "Listening on #{listen_host} port #{listen_port}"
   end
   
-  def process_send_data(connection, tunnel_connection_id, data)    
-    listen_server = connection[:listen_serv]
-    if listen_server
-      D "data: #{data.length} bytes coming from #{tunnel_connection_id}"
-      listen_server.enqueue_outbound_data tunnel_connection_id, data
+  def process_send_data(tunnel_connection_id, data)    
+    tunnel_connection = @tunnel_connections[tunnel_connection_id]
+    if tunnel_connection
+      D "Data: #{data.length} bytes coming from #{tunnel_connection_id}"
+      tunnel_connection.send_data data
     else
-      W "send data before opening listen socket on connection #{tunnel_connection_id}"
+      W "Asked to send to unknown connection #{tunnel_connection_id}"
     end
   end
   
-  def process_close_connection(connection, tunnel_connection_id)
-    listen_server = connection[:listen_serv]
-    if listen_server
-      D "closing remote connection: #{tunnel_connection_id}"
-      listen_server.begin_close_connection tunnel_connection_id
+  def process_close_connection(tunnel_connection_id)
+    tunnel_connection = @tunnel_connections[tunnel_connection_id]
+    if tunnel_connection
+      D "Closed from tunneled end: #{tunnel_connection_id}"
+      tunnel_connection.close_from_tunnel
     else
-      W "close connection before opening listening socket on connection #{tunnel_connection_id}"
+      W "Asked to close unkown connection #{tunnel_connection_id}"
     end
   end
   
-  def close_connection_at_port(port, already_synchronized = false)
-    if already_synchronized
-      if connection = @connections_by_port.delete(port)
-        connection.stop
-      end
-    else
-      @connections_lock.synchronize { close_connection_at_port port, true }
-    end
+  
+  ## Pinging
+  
+  # Enables sending PingCommands every few seconds.
+  def enable_pinging
+    @ping_timer = EventMachine::PeriodicTimer.new 2.0 do
+      send_command PingCommand.new
+     end
   end
-
-  def start
-    super
-    @thread_killer = [false]
-    spawn_ping_thread
-  end
-
-  def stop
-    super
-  end
-
-  def queue_command(queue, command)
-    command_str = command.to_encoded_str
-    s = StringIO.new; s.write_varsize command_str.length
-    queue << s.string
-    queue << command_str
-  end
-
-  # Spawns a thread that pings every connection.
-  def spawn_ping_thread
-    logged_thread do
-      thread_killer = @thread_killer
-      loop do
-        break if thread_killer[0]
-        sleep @ping_interval
-        
-        break if thread_killer[0]
-        connections = @connections_lock.synchronize { @connections.values.dup }
-        connections.each do |conn|
-          queue_command conn[:queue], PingCommand.new
-        end
-      end
-    end
-  end
+  
+  # Disables processing of ping timeouts.
+  def disable_pinging
+    return unless @ping_timer
+    @ping_timer.cancel
+    @ping_timer = nil
+  end  
 end
 
 
+# A connection to a tunnelled port.
+class RTunnel::Server::TunnelConnection < EventMachine::Connection
+  include RTunnel
+  include RTunnel::Logging
+  
+  attr_reader :connection_id
+  
+  def initialize(control_connection, listen_host, listen_port)
+    # listen_host and listen_port are passed for logging purposes only
+    @listen_host = listen_host
+    @listen_port = listen_port
+    @control_connection = control_connection
+    @server = @control_connection.server
+    
+    init_log :to => @server
+  end
+  
+  def post_init
+    @connection_id = @server.new_connection_id
+    peer = Socket.unpack_sockaddr_in get_peername
+    D "Tunnel from #{peer} on #{@connection_id}"
+    @server.register_tunnel_connection self
+    @control_connection.send_command CreateConnectionCommand.new(@connection_id)
+  end
+  
+  def unbind
+    unless @tunnel_closed
+      D "Closed from client end: #{@connection_id}"
+      close_command = CloseConnectionCommand.new(@connection_id)
+      @control_connection.send_command close_command
+    end
+    @server.deregister_tunnel_connection self
+  end
+  
+  def close_from_tunnel
+    @tunnel_closed = true
+    close_after_writing
+  end
+  
+  def receive_data(data)
+    D "Data: #{data.length} bytes for #{@connection_id}"
+    @control_connection.send_command SendDataCommand.new(@connection_id, data)
+  end
+end

@@ -1,5 +1,9 @@
 require 'optparse'
 
+require 'rubygems'
+require 'eventmachine'
+
+
 module RTunnel
   def self.run_server    
     options = {}
@@ -8,6 +12,8 @@ module RTunnel
       o.on("-c", "--control ADDRESS") { |a| options[:control_address] = a }
     end).parse!  rescue (puts opts; return)
 
-    RTunnel::Server.new(options).start.join
+    EventMachine::run do
+      RTunnel::Server.new(options).start
+    end
   end  
 end

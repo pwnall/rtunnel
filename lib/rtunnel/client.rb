@@ -67,7 +67,7 @@ class RTunnel::Client
   end  
 end
 
-
+# Connection to the server's control port.
 class RTunnel::Client::ServerConnection < EventMachine::Connection
   # Note: I would've loved to make this a module, but event_machine's
   # connection init order (initialize, connect block, post_init) does not
@@ -101,7 +101,12 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     # wait for a second, then try connecting again
     W 'Lost server connection, will reconnect in 1s'
     EventMachine::add_timer(1.0) { client.connect_to_server }
+    @connections.each { |conn_id, conn| conn.close_after_writing }
+    @connections.clear
   end
+  
+  
+  ## Command processing
   
   # Perform one command coming from the control connection. 
   def receive_command(command)
@@ -114,6 +119,8 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
       process_close_connection command.connection_id
     when SendDataCommand
       process_send_data command.connection_id, command.data
+    else
+      W "Unexpected command: #{command.inspect}"
     end
   end
 
@@ -157,6 +164,9 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     end
   end
   
+  
+  ## Ping verification
+  
   # Acknowledge a ping received from the control connection.
   def process_ping
     @last_ping = Time.now
@@ -188,7 +198,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   end  
 end
 
-
+# A connection to the tunnelled port.
 class RTunnel::Client::TunnelConnection < EventMachine::Connection
   include RTunnel
   include RTunnel::Logging
