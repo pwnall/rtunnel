@@ -28,7 +28,7 @@ class ScenarioConnection < EventMachine::Connection
     end
     @step += 1
     if @step < @scenario.length and @scenario[@step].first == :stop
-      EventMachine::stop_event_loop
+      scenario_stop @scenario[@step].last
     end
   end
 
@@ -82,5 +82,17 @@ class ScenarioConnection < EventMachine::Connection
       fail_message << "Scenario was completed\n"
     end
     @test_case.send :fail, fail_message
+  end
+  
+  def scenario_stop(stop_proc)
+    if stop_proc.kind_of? Proc
+      # call the proc, then give em time to stop all its servers
+      stop_proc.call
+      EventMachine::add_timer 0.001 do
+        EventMachine::stop_event_loop
+      end
+    else
+      EventMachine::stop_event_loop    
+    end
   end
 end

@@ -35,6 +35,7 @@ class RTunnel::Client
   def stop
     return unless @server_connection
     @server_connection.close_connection_after_writing
+    @server_connection.disable_ping_timeouts
     @server_connection = nil
   end
   
@@ -237,7 +238,7 @@ class RTunnel::Client::TunnelConnection < EventMachine::Connection
   end
   
   def receive_data(data)
-    D "Data: #{data.length} from #{@connection_id}"
+    D "Data: #{data.length} bytes from #{@connection_id}"
     @server_connection.send_command SendDataCommand.new(@connection_id, data)
   end
   

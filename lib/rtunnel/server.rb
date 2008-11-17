@@ -16,9 +16,9 @@ class RTunnel::Server
   
   def initialize(options = {})
     process_options options
-    @tunnel_listeners = {}
-    @tunnel_listeners_onclose = {}
+    @tunnel_controls = {}
     @tunnel_connections = {}
+    @tunnel_connections_by_control = {}
   end
   
   def start
@@ -45,13 +45,17 @@ class RTunnel::Server
   # return the listener. If a listener is already active on the given port,
   # the current listener is closed, and the new listener is created after the
   # old listener is closed.
-  def create_tunnel_listener(listen_port, &creation_block)
-    if @tunnel_listeners[listen_port]
-      # TODO(victor): implement this correctly
-      EventMachine::stop_server @tunnel_listeners[listen_port]
+  def create_tunnel_listener(listen_port, control_connection, &creation_block)
+    if old_control = @tunnel_controls[listen_port]
+      D "Closing old listener on port #{listen_port}"
+      EventMachine::stop_server old_control.listener
     end
     
-    @tunnel_listeners[listen_port] = yield
+    EventMachine::next_tick do
+      yield
+      @tunnel_controls[listen_port] = control_connection
+      redirect_tunnel_connections old_control, control_connection if old_control
+    end    
   end
   
   # Creates a string ID that is guaranteed to be unique across the server,
@@ -66,13 +70,26 @@ class RTunnel::Server
   # Registers a tunnel connection, so it can receive data.
   def register_tunnel_connection(connection)
     @tunnel_connections[connection.connection_id] = connection
+    control_connection = connection.control_connection
+    @tunnel_connections_by_control[control_connection] ||= Set.new
+    @tunnel_connections_by_control[control_connection] << connection
   end
   
   # De-registers a tunnel connection.
   def deregister_tunnel_connection(connection)
     @tunnel_connections.delete connection.connection_id
+    control_connection = connection.control_connection
+    @tunnel_connections_by_control[control_connection].delete connection
   end
   
+  def redirect_tunnel_connections(old_control, new_control)
+    return unless old_connections = @tunnel_connections_by_control[old_control]
+    old_connections.each do |tunnel_connection|
+      tunnel_connection.control_connection = new_control
+    end
+    @tunnel_connections_by_control[new_control] ||= Set.new
+    @tunnel_connections_by_control[new_control] += old_connections
+  end
   
   ## option processing
   
@@ -105,7 +122,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   include RTunnel::CommandProtocol
   include RTunnel::Logging
 
-  attr_reader :server
+  attr_reader :server, :listener
   
   def initialize(server)
     super()
@@ -125,7 +142,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   end
   
   def unbind
-    D "Lost connection from #{@client_host} port #{@client_port}"    
+    D "Lost connection from #{@client_host} port #{@client_port}"
     disable_pinging
   end
   
@@ -149,8 +166,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     listen_host = SocketFactory.host_from_address address
     listen_port = SocketFactory.port_from_address address
     
-    D "Creating listener for #{listen_host} port #{listen_port}"
-    @server.create_tunnel_listener listen_port do
+    @server.create_tunnel_listener listen_port, self do
+      D "Creating listener for #{listen_host} port #{listen_port}"
       @listener = EventMachine::start_server listen_host, listen_port,
                                              Server::TunnelConnection, self,
                                              listen_host, listen_port
@@ -204,6 +221,7 @@ class RTunnel::Server::TunnelConnection < EventMachine::Connection
   include RTunnel::Logging
   
   attr_reader :connection_id
+  attr_accessor :control_connection
   
   def initialize(control_connection, listen_host, listen_port)
     # listen_host and listen_port are passed for logging purposes only

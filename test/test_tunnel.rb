@@ -30,6 +30,12 @@ class TunnelTest < Test::Unit::TestCase
   end
   
   def tunnel_test
+    @stop_proc = proc do
+      @tunnel_client.stop
+      @tunnel_server.stop
+      @stop_proc = nil
+    end
+    
     EventMachine::run do
       @tunnel_server.start
       @tunnel_client.start
@@ -42,7 +48,7 @@ class TunnelTest < Test::Unit::TestCase
     tunnel_test do      
       EventMachine::start_server @local_host, @tunnel_port,
           ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
-                                     [:unbind], [:stop]]
+                                     [:unbind], [:stop, @stop_proc]]
                                      
       EventMachine::add_timer(@connection_time) do
         print "Starting client\n"
@@ -63,7 +69,7 @@ class TunnelTest < Test::Unit::TestCase
         print "Starting client\n"
         EventMachine::connect @local_host, @listen_port,
             ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
-                                       [:unbind], [:stop]]
+                                       [:unbind], [:stop, @stop_proc]]
       end
     end    
   end
@@ -77,7 +83,7 @@ class TunnelTest < Test::Unit::TestCase
         EventMachine::add_timer(@connection_time) do
           EventMachine::connect @local_host, @listen_port,
               ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
-                                         [:close], [:stop]]
+                                         [:close], [:stop, @stop_proc]]
         end
       end      
     end
