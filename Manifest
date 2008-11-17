@@ -1,5 +1,6 @@
 lib/rtunnel/command_protocol.rb
 lib/rtunnel/client.rb
+lib/rtunnel/crypto.rb
 lib/rtunnel/leak.rb
 lib/rtunnel/server.rb
 lib/rtunnel/frame_protocol.rb
@@ -20,6 +21,7 @@ tests/lo_http_server.rb
 tests/_stress_test.rb
 test/test_server.rb
 test/protocol_mocks.rb
+test/test_crypto.rb
 test/command_stubs.rb
 test/test_tunnel.rb
 test/test_io_extensions.rb
@@ -30,6 +32,8 @@ test/test_client.rb
 test/test_frame_protocol.rb
 test/test_socket_factory.rb
 Manifest
+test_data/known_hosts
+test_data/ssh_host_rsa_key
 CHANGELOG
 README.markdown
 LICENSE

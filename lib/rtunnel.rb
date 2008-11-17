@@ -8,6 +8,7 @@ require 'rtunnel/frame_protocol.rb'
 
 require 'rtunnel/commands.rb'
 require 'rtunnel/command_protocol.rb'
+require 'rtunnel/crypto.rb'
 
 require 'rtunnel/client.rb'
 require 'rtunnel/leak.rb'
