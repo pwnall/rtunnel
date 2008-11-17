@@ -23,7 +23,7 @@ end
 
 desc "Print command codes"
 task :codes do
-  RTunnel::Command.print_codes
+  print RTunnel::Command.printable_codes
 end
 
 Echoe.new('rtunnel') do |p|

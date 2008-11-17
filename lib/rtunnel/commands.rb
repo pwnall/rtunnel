@@ -26,10 +26,10 @@ class RTunnel::Command
     end
     
     def codes_and_classes
-      @printable = []
-      @codes.each { |code, klass| @printable[code] = klass.name }
-      @printable.sort!
-      return @printable
+      ret_val = []
+      @codes.each { |klass, code| ret_val << [code, klass.name] }
+      ret_val.sort!
+      return ret_val
     end
   end
   
@@ -78,11 +78,13 @@ class RTunnel::Command
     command
   end
 
-  # Print all the codes and their classes.
-  def self.print_codes
-    registry.each do |code_and_class|
-      print "#{code_and_class.first}: #{code_and_class.last}\n"
+  # Printable string containing all the codes and their classes.
+  def self.printable_codes
+    printable = ''
+    registry.codes_and_classes.each do |code_and_class|
+      printable << "#{code_and_class.first}: #{code_and_class.last}\n"
     end
+    return printable
   end
 end
 
@@ -174,3 +176,4 @@ class RTunnel::PingCommand < RTunnel::Command
     super
   end
 end
+

@@ -41,4 +41,9 @@ class CommandsTest < Test::Unit::TestCase
     end
     assert_equal "", @str.read
   end
+  
+  def test_codes
+    # TODO(not_me): it'd be nice to have more than a smoke test here
+    assert_equal String, RTunnel::Command.printable_codes.class
+  end
 end
