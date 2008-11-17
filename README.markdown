@@ -22,6 +22,14 @@ on your local machine:
 
 This would reverse tunnel myserver.com:4000 to localhost:3000 so that if you had a web server running at port 3000 on your local machine, anyone on the internet could access it by going to http://myserver.com:4000
 
+**Logging (verbosity) level**
+
+Both the server and the client support 4 levels of logging - 'debug', 'info', 'warn', 'error'. The -l parameter sets the logging level. The default level is 'error'. For example:
+
+`rtunnel_server -l debug`
+
+starts a server that will output debugging information.
+
 RTunnel?
 -
 
