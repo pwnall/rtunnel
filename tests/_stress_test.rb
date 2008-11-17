@@ -6,7 +6,7 @@ require 'stringio'
 require 'rtunnel'
 
 CONCURRENT_CONNECTIONS = 5
-DISPLAY_RTUNNEL_OUTPUT = false
+DISPLAY_RTUNNEL_OUTPUT = true
 TUNNEL_PORT = 5000
 HTTP_PORT = 4444
 
@@ -32,9 +32,9 @@ at_exit { cleanup }
 
 ENV['RTUNNEL_DEBUG'] = '1'  if DISPLAY_RTUNNEL_OUTPUT
 
-base_dir = File.dirname(__FILE__)
-$pids << fork{ exec "ruby", "#{base_dir}/rtunnel_server.rb" }
-$pids << fork{ exec "ruby", "#{base_dir}/rtunnel_client.rb", '-c', 'localhost', '-f', TUNNEL_PORT.to_s, '-t', HTTP_PORT.to_s }
+base_dir = File.join(File.dirname(__FILE__), '..', 'bin')
+$pids << fork{ exec "ruby", "-Ilib", "#{base_dir}/rtunnel_server" }
+$pids << fork{ exec "ruby", "-Ilib", "#{base_dir}/rtunnel_client", '-c', '127.0.0.1', '-f', TUNNEL_PORT.to_s, '-t', "127.0.0.1:#{HTTP_PORT}" }
 
 $pids << fork do
   require 'thin'

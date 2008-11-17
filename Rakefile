@@ -34,9 +34,13 @@ Echoe.new('rtunnel') do |p|
   p.description = ''
   p.url = 'http://code.google.com/p/rtunnel/'
   # p.remote_rdoc_dir = '' # Release to root
-  p.dependencies = ["eventmachine >=0.12.2", "uuidtools >=1.0.2"]
-  p.development_dependencies = ["echoe >=3.0.1", "rspec >=1.1.11",
-                                "simple-daemon >=0.1.2"]
+  p.dependencies = ["eventmachine >=0.12.2",
+                    "net-ssh >=2.0.4",
+                    "uuidtools >=1.0.2"]
+  p.development_dependencies = ["echoe >=3.0.1",
+                                "rspec >=1.1.11",
+                                "simple-daemon >=0.1.2",
+                                "thin >=1.0.0"]
   p.need_tar_gz = false
   p.need_zip = false
 end
