@@ -22,11 +22,15 @@ class ScenarioConnection < EventMachine::Connection
 
   def unbind
     return if @ignore_unbind
-    
+        
     unless @step < @scenario.length and @scenario[@step].first == :unbind
       scenario_fail "Received unexpected unbind\n"      
     end
     @step += 1
+    while @step < @scenario.length and @scenario[@step].first == :proc
+      @scenario[@step].last.call
+      @step += 1
+    end
     if @step < @scenario.length and @scenario[@step].first == :stop
       scenario_stop @scenario[@step].last
     end
