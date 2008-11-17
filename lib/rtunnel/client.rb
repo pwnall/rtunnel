@@ -13,10 +13,12 @@ class RTunnel::Client
   attr_reader :remote_listen_address, :tunnel_to_address
   attr_reader :ping_timeout
   attr_reader :logger
-  attr_reader :server_connection
+  attr_reader :connections, :server_connection
   
   def initialize(options = {})
-    process_options options    
+    process_options options
+    @connections = {}
+    @server_connection = nil
   end
 
   def start
@@ -33,6 +35,8 @@ class RTunnel::Client
   end
   
   def stop
+    @connections.each { |connection| connection.close_connection_after_writing }
+    
     return unless @server_connection
     @server_connection.close_connection_after_writing
     @server_connection.disable_ping_timeouts
@@ -96,7 +100,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     @tunnel_to_host = SocketFactory.host_from_address @tunnel_to_address
     @tunnel_to_port = SocketFactory.port_from_address @tunnel_to_address
     @ping_timer = nil
-    @connections = {}
+    @connections = @client.connections
     init_log :to => @client
   end
 
@@ -184,13 +188,16 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   # PingCommand is received within a certain amount of time.
   def enable_ping_timeouts
     @last_ping = Time.now
-    @ping_timer = EventMachine::PeriodicTimer.new 1.0 do
-       if ping_timeout?
-         W 'Ping timeout. Disconnecting from server.'
-         disable_ping_timeouts
-         close_connection_after_writing
-       end
-     end
+    @ping_timer = EventMachine::PeriodicTimer.new(1.0) { check_ping_timeout }
+  end
+  
+  # Closes the connection if no PingCommand has been received for some time.
+  def check_ping_timeout
+    if ping_timeout?
+      W 'Ping timeout. Disconnecting from server.'
+      disable_ping_timeouts
+      close_connection_after_writing
+    end
   end
   
   # Disables processing of ping timeouts.
@@ -217,8 +224,11 @@ class RTunnel::Client::TunnelConnection < EventMachine::Connection
     @connection_id = connection_id
     @backlog = ''
     @client = client
-    @server_connection = client.server_connection
     init_log :to => @client
+  end
+  
+  def server_connection
+    @client.server_connection
   end
   
   def tunnel_data(data)
@@ -239,10 +249,10 @@ class RTunnel::Client::TunnelConnection < EventMachine::Connection
   
   def receive_data(data)
     D "Data: #{data.length} bytes from #{@connection_id}"
-    @server_connection.send_command SendDataCommand.new(@connection_id, data)
+    server_connection.send_command SendDataCommand.new(@connection_id, data)
   end
   
   def unbind
-    @server_connection.data_connection_closed @connection_id
+    server_connection.data_connection_closed @connection_id
   end
 end
