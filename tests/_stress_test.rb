@@ -3,7 +3,7 @@ require 'eventmachine'
 require 'logger'
 require 'stringio'
 
-require 'lib/core'
+require 'rtunnel'
 
 CONCURRENT_CONNECTIONS = 5
 DISPLAY_RTUNNEL_OUTPUT = false
