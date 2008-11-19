@@ -4,7 +4,9 @@ module CommandStubs
   @@test_id2 = "ALSKDJFH1029384756"
   @@test_address = "192.168.43.95"
   @@data = (0..255).to_a.pack('C*')
-    
+  @@ekey = (128...192).to_a.pack('C*') * 8
+  @@pubfp = (0...128).to_a.pack('C*') * 5
+  
   def generate_ping
     RTunnel::PingCommand.new
   end
@@ -45,14 +47,31 @@ module CommandStubs
     assert_equal @@data, cmd.data
   end
   
+  def generate_set_sk
+    RTunnel::SetSessionKeyCommand.new @@ekey
+  end
+  def verify_set_sk
+    assert_equal RTunnel::SetSessionKeyCommand, cmd.class
+    assert_equal @@ekey, cmd.encrypted_key
+  end
+
+  def generate_gen_sk
+    RTunnel::GenerateSessionKeyCommand.new @@pubfp
+  end
+  def verify_gen_sk
+    assert_equal RTunnel::GenerateSessionKeyCommand, cmd.class
+    assert_equal @@pubfp, cmd.public_key_fp
+  end
+
   # An array with the names of all commands.
   # Use these names to obtain the names of the genrate_ and verify_ methods.
   def self.command_names
-    [:ping, :create, :close, :listen, :send]
+    [:ping, :create, :close, :listen, :send, :gen_sk, :set_sk]
   end
 
   # A sequence of command names useful for testing "real" connections.
   def self.command_test_sequence
-    [:create, :ping, :listen, :ping, :send, :send, :ping, :ping, :send, :close]
+    [:create, :ping, :gen_sk, :set_sk, :ping, :listen, :ping, :send, :send,
+     :ping, :ping, :send, :close]
   end
 end

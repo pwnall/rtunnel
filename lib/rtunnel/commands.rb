@@ -177,3 +177,48 @@ class RTunnel::PingCommand < RTunnel::Command
   end
 end
 
+class RTunnel::GenerateSessionKeyCommand < RTunnel::Command
+  command_code 'S'
+  
+  def initialize(public_key_fp = nil)
+    super()
+    @public_key_fp = public_key_fp
+  end
+  
+  def to_s
+    super + "/pubkey_fp=#{@public_key_fp.inspect}"
+  end
+  
+  def initialize_from_io(io)
+    super
+    @public_key_fp = io.read_varstring    
+  end
+  
+  def encode(io)
+    super
+    io.write_varstring @public_key_fp
+  end
+end
+
+class RTunnel::SetSessionKeyCommand < RTunnel::Command
+  command_code 'K'
+  
+  def initialize(encrypted_key = nil)
+    super()
+    @encrypted_key = encrypted_key
+  end
+  
+  def to_s
+    super + "/enc_key=#{@encrypted_key.inspect}"
+  end
+  
+  def initialize_from_io(io)
+    super
+    @encrypted_key = io.read_varstring
+  end
+  
+  def encode(io)
+    super
+    io.write_varstring @encrypted_key
+  end
+end
