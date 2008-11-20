@@ -105,22 +105,30 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     @tunnel_to_host = SocketFactory.host_from_address @tunnel_to_address
     @tunnel_to_port = SocketFactory.port_from_address @tunnel_to_address
     @ping_timer = nil
+    @hasher = nil
     @connections = @client.connections
     init_log :to => @client
   end
 
   def post_init
     if @client.private_key
-      key_fp = Crypto::key_fingerprint @client.private_key
-      send_command GenerateSessionKeyCommand.new(key_fp)
+      request_session_key
     else
-      start_listening
+      request_listen
     end
   end
   
-  def start_listening
+  # Asks the server to open a listen socket for this client's tunnel.
+  def request_listen
     send_command RemoteListenCommand.new(@client.remote_listen_address)
     enable_ping_timeouts    
+  end
+
+  # Asks the server to establish a session key with this client.
+  def request_session_key
+    D 'Private key provided, asking server for session key'
+    key_fp = Crypto::key_fingerprint @client.private_key
+    send_command GenerateSessionKeyCommand.new(key_fp)    
   end
   
   def unbind
@@ -173,9 +181,22 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
       W "Received data for non-existent connection #{connection_id}!"
     end
   end
-  
+
+  # SetSessionKey handler
   def process_set_session_key(encrypted_key)
-    
+    case encrypted_key
+    when ''
+      W "Sent key to open tunnel server"
+      request_listen
+    when 'NO'
+      E "Server refused provided key"
+      close_connection_after_writing
+    else
+      D "Received server session key, installing hasher"
+      hasher_key = Crypto.decrypt_with_key client.private_key, encrypted_key
+      @hasher = Crypto::Hasher.new hasher_key
+      request_listen
+    end
   end
   
   

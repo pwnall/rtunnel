@@ -12,7 +12,7 @@ class RTunnel::Server
   include RTunnel::ConnectionId
   
   attr_reader :control_address, :control_host, :control_port
-  attr_reader :ping_interval
+  attr_reader :ping_interval, :authorized_keys
   attr_reader :tunnel_connections
   
   def initialize(options = {})
@@ -147,6 +147,12 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   ## Command processing
     
   def process_remote_listen(address)
+    if @server.authorized_keys and @hasher.nil?
+      D "Asked to open listen socket by unauthorized client"
+      close_connection_after_writing
+      return
+    end
+    
     listen_host = SocketFactory.host_from_address address
     listen_port = SocketFactory.port_from_address address
     
@@ -176,8 +182,25 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
       D "Closed from tunneled end: #{tunnel_connection_id}"
       tunnel_connection.close_from_tunnel
     else
-      W "Asked to close unkown connection #{tunnel_connection_id}"
+      W "Asked to close unknown connection #{tunnel_connection_id}"
     end
+  end
+  
+  def process_generate_session_key(public_key_fp)
+    if @server.authorized_keys
+      if public_key = @server.authorized_keys[public_key_fp]
+        D "Received authorized client key, generating session key"
+        @hasher = Crypto::Hasher.new
+        encrypted_key = Crypto.encrypt_with_key public_key, @hasher.key
+      else
+        D "Received unauthorized client key"
+        encrypted_key = 'NO'
+      end
+    else
+      D "Asked to generate session key, but no authorized keys set"
+      encrypted_key = ''
+    end
+    send_command SetSessionKeyCommand.new encrypted_key
   end
   
   
@@ -213,14 +236,15 @@ class RTunnel::Server::TunnelConnection < EventMachine::Connection
     @listen_port = listen_port
     @control_connection = control_connection
     @server = @control_connection.server
+    @hasher = nil
     
     init_log :to => @server
   end
   
   def post_init
     @connection_id = @server.new_connection_id
-    peer = Socket.unpack_sockaddr_in get_peername
-    D "Tunnel from #{peer} on #{@connection_id}"
+    peer = Socket.unpack_sockaddr_in(get_peername).reverse.join ':'
+    D "Tunnel connection from #{peer} on #{@connection_id}"
     @server.register_tunnel_connection self
     @control_connection.send_command CreateConnectionCommand.new(@connection_id)
   end

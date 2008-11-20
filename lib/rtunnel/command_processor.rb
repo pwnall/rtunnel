@@ -30,6 +30,11 @@ module RTunnel::CommandProcessor
     unexpected_command @last_command
   end
   
+  # Override to process GenerateSessionKeyCommand. Do NOT call super.  
+  def process_generate_session_key(public_key_fp)
+    unexpected_command @last_command
+  end
+  
   # Override to process PingCommand. Do NOT call super.
   def process_ping
     unexpected_command @last_command
@@ -42,6 +47,11 @@ module RTunnel::CommandProcessor
 
   # Override to process SendDataCommand. Do NOT call super.
   def process_send_data(connection_id, data)
+    unexpected_command @last_command
+  end
+  
+  # Override to process SetSessionKeyCommand. Do NOT call super.
+  def process_set_session_key(encrypted_key)
     unexpected_command @last_command
   end
   
