@@ -180,6 +180,8 @@ end
 class RTunnel::GenerateSessionKeyCommand < RTunnel::Command
   command_code 'S'
   
+  attr_reader :public_key_fp
+  
   def initialize(public_key_fp = nil)
     super()
     @public_key_fp = public_key_fp
@@ -203,6 +205,8 @@ end
 class RTunnel::SetSessionKeyCommand < RTunnel::Command
   command_code 'K'
   
+  attr_reader :encrypted_key
+
   def initialize(encrypted_key = nil)
     super()
     @encrypted_key = encrypted_key
@@ -222,3 +226,5 @@ class RTunnel::SetSessionKeyCommand < RTunnel::Command
     io.write_varstring @encrypted_key
   end
 end
+
+# TODO(not_me): this file (and its tests) cry for a DSL

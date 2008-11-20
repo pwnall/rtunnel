@@ -8,6 +8,7 @@ require 'uuidtools'
 # The RTunnel server class, managing control and connection servers.
 class RTunnel::Server
   include RTunnel
+  include RTunnel::CommandProcessor
   include RTunnel::Logging
   
   attr_reader :control_address, :control_host, :control_port
@@ -119,6 +120,7 @@ end
 # A client connection to the server's control port.
 class RTunnel::Server::ControlConnection < EventMachine::Connection
   include RTunnel
+  include RTunnel::CommandProcessor
   include RTunnel::CommandProtocol
   include RTunnel::Logging
 
@@ -148,20 +150,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   
   
   ## Command processing
-  
-  def receive_command(command)
-    case command
-    when RemoteListenCommand
-      process_remote_listen(command.address)
-    when SendDataCommand
-      process_send_data(command.connection_id, command.data)
-    when CloseConnectionCommand
-      process_close_connection(command.connection_id)
-    else
-      W "Unexpected command: #{command.inspect}"
-    end
-  end
-  
+    
   def process_remote_listen(address)
     listen_host = SocketFactory.host_from_address address
     listen_port = SocketFactory.port_from_address address

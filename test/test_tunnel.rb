@@ -15,9 +15,9 @@ class TunnelTest < Test::Unit::TestCase
     @connection_time = 0.001
     @log_level = 'debug'
     @local_host = '127.0.0.1'
-    @listen_port = 31335
-    @tunnel_port = 31336
-    @control_port = 31337
+    @listen_port = 21335
+    @tunnel_port = 21336
+    @control_port = 21337
     
     @tunnel_server = RTunnel::Server.new(
         :control_address => "#{@local_host}:#{@control_port}",

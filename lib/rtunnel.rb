@@ -7,6 +7,7 @@ require 'rtunnel/socket_factory.rb'
 require 'rtunnel/frame_protocol.rb'
 
 require 'rtunnel/commands.rb'
+require 'rtunnel/command_processor.rb'
 require 'rtunnel/command_protocol.rb'
 require 'rtunnel/crypto.rb'
 

@@ -50,7 +50,7 @@ module CommandStubs
   def generate_set_sk
     RTunnel::SetSessionKeyCommand.new @@ekey
   end
-  def verify_set_sk
+  def verify_set_sk(cmd)
     assert_equal RTunnel::SetSessionKeyCommand, cmd.class
     assert_equal @@ekey, cmd.encrypted_key
   end
@@ -58,7 +58,7 @@ module CommandStubs
   def generate_gen_sk
     RTunnel::GenerateSessionKeyCommand.new @@pubfp
   end
-  def verify_gen_sk
+  def verify_gen_sk(cmd)
     assert_equal RTunnel::GenerateSessionKeyCommand, cmd.class
     assert_equal @@pubfp, cmd.public_key_fp
   end

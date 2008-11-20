@@ -88,6 +88,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   
   include RTunnel
   include RTunnel::Logging
+  include RTunnel::CommandProcessor
   include RTunnel::CommandProtocol
   
   attr_reader :client
@@ -120,22 +121,6 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   
   ## Command processing
   
-  # Perform one command coming from the control connection. 
-  def receive_command(command)
-    case command
-    when PingCommand
-      process_ping
-    when CreateConnectionCommand
-      process_create_connection command.connection_id      
-    when CloseConnectionCommand
-      process_close_connection command.connection_id
-    when SendDataCommand
-      process_send_data command.connection_id, command.data
-    else
-      W "Unexpected command: #{command.inspect}"
-    end
-  end
-
   # CreateConnectionCommand handler
   def process_create_connection(connection_id)
     if @connections[connection_id]
