@@ -198,6 +198,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
       D "Received server session key, installing hasher"
       hasher_key = Crypto.decrypt_with_key client.private_key, encrypted_key
       @hasher = Crypto::Hasher.new hasher_key
+      self.command_hasher = @hasher
       request_listen
     end
   end
