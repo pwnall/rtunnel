@@ -2,7 +2,6 @@ require 'set'
 
 require 'rubygems'
 require 'eventmachine'
-require 'uuidtools'
 
 
 # The RTunnel server class, managing control and connection servers.
@@ -10,6 +9,7 @@ class RTunnel::Server
   include RTunnel
   include RTunnel::CommandProcessor
   include RTunnel::Logging
+  include RTunnel::ConnectionId
   
   attr_reader :control_address, :control_host, :control_port
   attr_reader :ping_interval
@@ -59,15 +59,6 @@ class RTunnel::Server
     end    
   end
   
-  # Creates a string ID that is guaranteed to be unique across the server,
-  # and hard to guess.
-  def new_connection_id
-    # TODO(not_me): UUIDs don't have 128 bits of entropy, because they
-    #               contain the MAC, etc; upgrade to encrypting sequence numbers
-    #               with an AES key generated @ server startup
-    UUID.timestamp_create.hexdigest
-  end
-
   # Registers a tunnel connection, so it can receive data.
   def register_tunnel_connection(connection)
     @tunnel_connections[connection.connection_id] = connection
