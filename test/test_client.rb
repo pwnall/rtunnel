@@ -1,5 +1,6 @@
 require 'rtunnel'
 
+require 'openssl'
 require 'resolv'
 require 'test/unit'
 
@@ -7,7 +8,8 @@ class ClientTest < Test::Unit::TestCase
   def setup
     @client = RTunnel::Client.new(:control_address => 'localhost',
                                   :remote_listen_address => '9199',
-                                  :tunnel_to_address => '4444')
+                                  :tunnel_to_address => '4444',
+                                  :private_key => 'test_data/ssh_host_rsa_key')
     @localhost_addr = Resolv.getaddress 'localhost'
   end
   
@@ -36,5 +38,10 @@ class ClientTest < Test::Unit::TestCase
                  
     assert_equal RTunnel::PING_TIMEOUT, client.extract_ping_timeout(nil)
     assert_equal 29, client.extract_ping_timeout(29)
+    
+    assert_equal nil, client.extract_private_key(nil)
+    key = client.extract_private_key 'test_data/ssh_host_rsa_key'
+    assert_equal OpenSSL::PKey::RSA, key.class
+    assert_equal File.read('test_data/ssh_host_rsa_key'), key.to_pem
   end
 end

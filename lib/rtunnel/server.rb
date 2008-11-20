@@ -95,7 +95,7 @@ class RTunnel::Server
   ## option processing
   
   def process_options(options)
-    [:control_address, :ping_interval].each do |opt|
+    [:control_address, :ping_interval, :authorized_keys].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -113,7 +113,11 @@ class RTunnel::Server
   
   def self.extract_ping_interval(interval)
     interval || RTunnel::PING_INTERVAL
-  end   
+  end
+  
+  def self.extract_authorized_keys(keys_file)
+    keys_file and Crypto::load_public_keys keys_file
+  end
 end
 
 

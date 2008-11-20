@@ -63,7 +63,7 @@ class CryptoTest < Test::Unit::TestCase
       0.upto(test_data.length - 4) do |i|
         assert !encrypted_data.index(test_data[i, 4]),
                'Encryption did not wipe the original pattern'
-      end       
+      end
     end
   end
   

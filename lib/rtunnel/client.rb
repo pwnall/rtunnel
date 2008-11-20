@@ -11,7 +11,7 @@ class RTunnel::Client
 
   attr_reader :control_address, :control_host, :control_port
   attr_reader :remote_listen_address, :tunnel_to_address
-  attr_reader :ping_timeout
+  attr_reader :ping_timeout, :private_key
   attr_reader :logger
   attr_reader :connections, :server_connection
   
@@ -47,7 +47,7 @@ class RTunnel::Client
   
   def process_options(options)
     [:control_address, :remote_listen_address, :tunnel_to_address,
-     :ping_timeout].each do |opt|
+     :ping_timeout, :private_key].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -76,6 +76,10 @@ class RTunnel::Client
   
   def self.extract_ping_timeout(timeout)
     timeout || RTunnel::PING_TIMEOUT
+  end
+  
+  def self.extract_private_key(key_file)
+    key_file and Crypto::read_private_key key_file
   end
 end
 
@@ -106,8 +110,17 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   end
 
   def post_init
+    if @client.private_key
+      key_fp = Crypto::key_fingerprint @client.private_key
+      send_command GenerateSessionKeyCommand.new key_fp
+    else
+      start_listening
+    end
+  end
+  
+  def start_listening
     send_command RemoteListenCommand.new(@client.remote_listen_address)
-    enable_ping_timeouts
+    enable_ping_timeouts    
   end
   
   def unbind
@@ -159,6 +172,10 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     else
       W "Received data for non-existent connection #{connection_id}!"
     end
+  end
+  
+  def process_set_session_key(encrypted_key)
+    
   end
   
   

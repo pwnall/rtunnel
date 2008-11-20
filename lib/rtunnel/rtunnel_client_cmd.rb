@@ -18,6 +18,9 @@ module RTunnel
       o.on("-t", "--tunnel-to ADDRESS") do |a|
         options[:tunnel_to_address] = a
       end
+      o.on("-k", "--private-key KEYFILE") do |f|
+        options[:private_key] = f
+      end
       o.on("-l", "--log-level LEVEL") do |l|
         options[:log_level] = l
       end

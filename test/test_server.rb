@@ -22,5 +22,10 @@ class ServerTest < Test::Unit::TestCase
 
     assert_equal RTunnel::PING_INTERVAL, server.extract_ping_interval(nil)
     assert_equal 29, server.extract_ping_interval(29)
+    
+    assert_equal nil, server.extract_authorized_keys(nil)
+    keyset = server.extract_authorized_keys 'test_data/known_hosts'
+    assert_equal RTunnel::Crypto::KeySet, keyset.class
+    assert keyset.length != 0, 'No key read from the known_hosts file'
   end
 end

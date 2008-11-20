@@ -6,13 +6,17 @@ module RTunnel::CommandProcessor
     when RTunnel::CloseConnectionCommand
       process_close_connection command.connection_id
     when RTunnel::CreateConnectionCommand
-      process_create_connection command.connection_id      
+      process_create_connection command.connection_id
+    when RTunnel::GenerateSessionKeyCommand
+      process_generate_session_key command.public_key_fp
     when RTunnel::PingCommand
       process_ping
     when RTunnel::RemoteListenCommand
       process_remote_listen command.address
     when RTunnel::SendDataCommand
       process_send_data command.connection_id, command.data
+    when RTunnel::SetSessionKeyCommand
+      process_set_session_key command.encrypted_key
     end
   end
 

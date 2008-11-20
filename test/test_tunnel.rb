@@ -18,15 +18,27 @@ class TunnelTest < Test::Unit::TestCase
     @listen_port = 21335
     @tunnel_port = 21336
     @control_port = 21337
+    @key_file = 'test_data/ssh_host_rsa_key'
+    @hosts_file = 'test_data/known_hosts'
     
-    @tunnel_server = RTunnel::Server.new(
+    @tunnel_server = new_server
+    @tunnel_client = new_client
+  end
+  
+  def new_server(extra_options = {})
+    RTunnel::Server.new({
         :control_address => "#{@local_host}:#{@control_port}",
-        :log_level => @log_level)
-    @tunnel_client = RTunnel::Client.new(
-        :control_address => "#{@local_host}:#{@control_port}",
-        :remote_listen_address => "#{@local_host}:#{@listen_port}",
-        :tunnel_to_address => "#{@local_host}:#{@tunnel_port}",
-        :log_level => @log_level)
+        :log_level => @log_level
+        }.merge(extra_options))
+  end
+  
+  def new_client(extra_options = {})
+    RTunnel::Client.new({
+            :control_address => "#{@local_host}:#{@control_port}",
+            :remote_listen_address => "#{@local_host}:#{@listen_port}",
+            :tunnel_to_address => "#{@local_host}:#{@tunnel_port}",
+            :log_level => @log_level
+            }.merge(extra_options))
   end
   
   def tunnel_test
@@ -98,6 +110,23 @@ class TunnelTest < Test::Unit::TestCase
         EventMachine::connect @local_host, @listen_port,
             ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
                                        [:proc, start_second], [:unbind]]
+      end
+    end
+  end
+  
+  def test_secure_tunnel
+    @tunnel_server = new_server :authorized_keys_file => @hosts_file
+    @tunnel_client = new_client :private_key_file => @key_file
+    tunnel_test do      
+      EventMachine::start_server @local_host, @tunnel_port,
+          ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
+                                     [:unbind], [:stop, @stop_proc]]
+                                     
+      EventMachine::add_timer(@connection_time) do
+        print "Starting client\n"
+        EventMachine::connect @local_host, @listen_port,
+            ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
+                                       [:close]]
       end
     end
   end

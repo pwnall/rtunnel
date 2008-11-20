@@ -10,6 +10,9 @@ module RTunnel
     
     (opts = OptionParser.new do |o|
       o.on("-c", "--control ADDRESS") { |a| options[:control_address] = a }
+      o.on("-a", "--authorized-keys KEYSFILE") do |f|
+        options[:authorized_keys] = f
+      end
       o.on("-l", "--log-level LEVEL") { |l| options[:log_level] = l }
     end).parse!  rescue (puts opts; return)
 
