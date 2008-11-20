@@ -112,7 +112,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   def post_init
     if @client.private_key
       key_fp = Crypto::key_fingerprint @client.private_key
-      send_command GenerateSessionKeyCommand.new key_fp
+      send_command GenerateSessionKeyCommand.new(key_fp)
     else
       start_listening
     end

@@ -1,4 +1,6 @@
+require 'digest/sha2'
 require 'openssl'
+require 'stringio'
 
 require 'rubygems'
 require 'net/ssh'
@@ -55,7 +57,7 @@ module RTunnel::Crypto
   end
 end
 
-# A set of keys used by a server to authenticate clients.s
+# A set of keys used by a server to authenticate clients.
 class RTunnel::Crypto::KeySet  
   def initialize(key_list)
     @keys_by_fp = {}
@@ -69,4 +71,34 @@ class RTunnel::Crypto::KeySet
   def length
     @keys_by_fp.length
   end
+end
+
+# A cryptographically secure hasher. Instances will hash the data 
+class RTunnel::Crypto::Hasher
+  attr_reader :key
+  
+  def initialize(key = nil)
+    @key = key || RTunnel::Crypto::Hasher.random_key
+    @cipher = OpenSSL::Cipher::Cipher.new 'aes-128-cbc'
+    @cipher.encrypt
+    iokey = StringIO.new @key
+    @cipher.key = iokey.read_varstring
+    @cipher.iv = iokey.read_varstring
+  end
+
+  # Creates a hash for the given data. Warning: this method is not idempotent.
+  # The intent is that the same hash can be produced by another hasher that is
+  # initialized with the same key and has been fed the same data.
+  def hash(data)
+    @cipher.update Digest::SHA2.digest(data)
+  end
+
+  # Produces a random key for the hasher.
+  def self.random_key
+    cipher = OpenSSL::Cipher::Cipher.new 'aes-128-cbc'
+    iokey = StringIO.new
+    iokey.write_varstring cipher.random_key
+    iokey.write_varstring cipher.random_iv
+    return iokey.string
+  end  
 end

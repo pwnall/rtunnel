@@ -74,4 +74,45 @@ class CryptoTest < Test::Unit::TestCase
     assert_equal num_keys, keys.map { |k| C.encrypt_with_key k, test_data }.
                                 uniq.length
   end
+  
+  def test_hasher_random_keys_are_random
+    num_keys = 1024
+    assert_equal num_keys, (0...num_keys).map { C::Hasher.random_key }.
+                                          uniq.length
+  end
+  
+  def test_hasher_random_keys_yield_random_results
+    num_keys = 1024
+    test_data = 'qwertyuiopasdfghjklzxcvbnm' * 2
+    assert_equal num_keys, (0...num_keys).map { C::Hasher.new.hash test_data }.
+                                          uniq.length
+  end
+  
+  def test_hasher_hashes_are_finite
+    num_blocks = 64
+    block = 'qwertyuiopasdfghjklzxcvbnm'
+    
+    hasher = C::Hasher.new
+    hash_length = hasher.hash('').length
+    1.upto(num_blocks) { |n| assert_equal hash_length, hasher.hash(block * n).
+                                                              length }
+  end
+  
+  def test_hasher_has_state
+    num_blocks = 1024
+    block = 'qwertyuiopasdfghjklzxcvbnm'
+    hasher = C::Hasher.new
+    
+    assert_equal num_blocks, (0...num_blocks).map { hasher.hash block}.uniq.
+                                               length
+  end
+  
+  def test_hasher_is_reproducible
+    hasher = C::Hasher.new
+    hasher2 = C::Hasher.new hasher.key
+    
+    num_blocks = 128
+    block = 'qwertyuiopasdfghjklzxcvbnm'
+    1.upto(num_blocks) { assert_equal hasher.hash(block), hasher2.hash(block) }
+  end
 end
