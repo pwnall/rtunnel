@@ -19,6 +19,7 @@ lib/rtunnel/rtunnel_server_cmd.rb
 lib/rtunnel/server.rb
 lib/rtunnel/socket_factory.rb
 lib/rtunnel/command_processor.rb
+lib/rtunnel/connection_id.rb
 spec/client_spec.rb
 spec/cmds_spec.rb
 spec/integration_spec.rb
@@ -36,8 +37,11 @@ test/test_io_extensions.rb
 test/test_server.rb
 test/test_socket_factory.rb
 test/test_tunnel.rb
+test/test_connection_id.rb
 test_data/known_hosts
 test_data/ssh_host_rsa_key
+test_data/ssh_host_dsa_key
+test_data/random_rsa_key
 tests/_ab_test.rb
 tests/_stress_test.rb
 tests/lo_http_server.rb
