@@ -127,7 +127,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     @server = server
     @tunnel_connections = server.tunnel_connections
     @listener = nil
-    @peer_name = nil
+    @ping_timer = nil
+    @hasher = nil
     
     init_log :to => @server
   end
@@ -149,7 +150,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   def process_remote_listen(address)
     if @server.authorized_keys and @hasher.nil?
       D "Asked to open listen socket by unauthorized client"
-      close_connection_after_writing
+      send_command SetSessionKeyCommand.new('NO')
       return
     end
     
@@ -193,14 +194,14 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
         @hasher = Crypto::Hasher.new
         encrypted_key = Crypto.encrypt_with_key public_key, @hasher.key
       else
-        D "Received unauthorized client key"
+        D "Rejecting unauthorized client key"
         encrypted_key = 'NO'
       end
     else
       D "Asked to generate session key, but no authorized keys set"
       encrypted_key = ''
     end
-    send_command SetSessionKeyCommand.new encrypted_key
+    send_command SetSessionKeyCommand.new(encrypted_key)
   end
   
   

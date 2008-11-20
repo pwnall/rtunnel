@@ -5,7 +5,6 @@ require 'test/unit'
 require 'rubygems'
 require 'eventmachine'
 require 'resolv'
-require 'thread'
 require 'timeout'
 
 require 'rubygems'
@@ -338,7 +337,6 @@ class TunnelTest < Test::Unit::TestCase
   end
   
   def test_client_driven_tunnel
-    return
     tunnel_test do      
       EventMachine::start_server @local_host, @tunnel_port,
           ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
@@ -353,7 +351,6 @@ class TunnelTest < Test::Unit::TestCase
   end
   
   def test_server_driven_tunnel
-    return
     tunnel_test do      
       EventMachine::start_server @local_host, @tunnel_port,
           ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
@@ -368,7 +365,6 @@ class TunnelTest < Test::Unit::TestCase
   end
   
   def test_two_tunnels
-    return
     start_second = proc do
       EventMachine::add_timer(@connection_time) do
         @tunnel_client.stop
@@ -409,5 +405,32 @@ class TunnelTest < Test::Unit::TestCase
                                        [:close]]
       end
     end
+  end
+  
+  def test_secure_server_rejects_unsecure_client
+    @tunnel_server = new_server :authorized_keys => @hosts_file
+    tunnel_test do      
+      EventMachine::start_server @local_host, @tunnel_port,
+          ScenarioConnection, self, []
+                                     
+      EventMachine::add_timer(@connection_time) do
+        EventMachine::connect @local_host, @listen_port,
+            ScenarioConnection, self, [[:unbind], [:stop, @stop_proc]]
+      end
+    end    
+  end
+
+  def test_secure_server_rejects_unauthorized_key
+    @tunnel_server = new_server :authorized_keys => @hosts_file
+    @tunnel_client = new_client :private_key => 'test_data/random_rsa_key'
+    tunnel_test do      
+      EventMachine::start_server @local_host, @tunnel_port,
+          ScenarioConnection, self, []
+                                     
+      EventMachine::add_timer(@connection_time) do
+        EventMachine::connect @local_host, @listen_port,
+            ScenarioConnection, self, [[:unbind], [:stop, @stop_proc]]
+      end
+    end    
   end
 end

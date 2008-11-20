@@ -1,6 +1,7 @@
 require 'pp'
 
 class RTunnel::LeakTracker
+  # TODO(not_me): update this to eventmachine if it's still interesting
   def self.start
     logged_thread do
       sleep 10

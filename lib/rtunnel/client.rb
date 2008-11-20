@@ -1,5 +1,4 @@
 require 'resolv'
-require 'thread'
 require 'timeout'
 
 require 'rubygems'
@@ -189,7 +188,11 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
       W "Sent key to open tunnel server"
       request_listen
     when 'NO'
-      E "Server refused provided key"
+      if @client.private_key
+        E "Server refused provided key"
+      else
+        E "Server requires authentication and no private key was provided"
+      end
       close_connection_after_writing
     else
       D "Received server session key, installing hasher"
