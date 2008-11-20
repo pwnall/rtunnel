@@ -21,8 +21,7 @@ class RTunnel::Server
     @tunnel_connections = {}
     @tunnel_connections_by_control = {}
   end
-  
-  def start
+    def start
     return if @control_listener
     @control_host = SocketFactory.host_from_address @control_address
     @control_port = SocketFactory.port_from_address @control_address
@@ -190,7 +189,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   def process_generate_session_key(public_key_fp)
     if @server.authorized_keys
       if public_key = @server.authorized_keys[public_key_fp]
-        D "Received authorized client key, generating session key"
+        D "Authorized client key received, generating session key"
         @hasher = Crypto::Hasher.new
         encrypted_key = Crypto.encrypt_with_key public_key, @hasher.key
       else
@@ -202,6 +201,18 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
       encrypted_key = ''
     end
     send_command SetSessionKeyCommand.new(encrypted_key)
+    self.command_hasher = @hasher if @hasher
+  end
+  
+  def receive_bad_frame(frame, exception)
+    case exception
+    when :bad_signature
+      D "Ignoring command with invalid signature"
+    when Exception
+      D "Ignoring malformed command."
+      D "Decoding exception: #{exception.class.name} - #{exception}\n" +
+        "#{exception.backtrace.join("\n")}\n"
+    end
   end
   
   

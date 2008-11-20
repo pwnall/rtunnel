@@ -19,6 +19,6 @@ module RTunnel::ConnectionId
     @session_id_counter ||= RTunnel::ConnectionId.new_counter
     connection_id = @session_id_cipher.update @session_id_counter
     @session_id_counter.succ!
-    return Base64.encode64(connection_id)
+    return Base64.encode64(connection_id).strip
   end
 end
