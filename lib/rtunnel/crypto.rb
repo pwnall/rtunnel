@@ -25,6 +25,29 @@ module RTunnel::Crypto
     key.public_key.to_der
   end
   
+  # Encrypts some data with a public key. The matching private key will be
+  # required to decrypt the data.
+  def self.encrypt_with_key(key, data)
+    if key.kind_of? OpenSSL::PKey::RSA
+      key.public_encrypt data, OpenSSL::PKey::RSA::PKCS1_OAEP_PADDING
+    elsif key.kind_of? OpenSSL::PKey::DSA
+      key.public_encrypt encrypted_data
+    else
+      raise 'Unsupported key type'
+    end
+  end
+  
+  # Decrypts data that was previously encrypted with encrypt_with_key.
+  def self.decrypt_with_key(key, encrypted_data)
+    if key.kind_of? OpenSSL::PKey::RSA
+      key.private_decrypt encrypted_data, OpenSSL::PKey::RSA::PKCS1_OAEP_PADDING    
+    elsif key.kind_of? OpenSSL::PKey::DSA
+      key.private_decrypt encrypted_data
+    else
+      raise 'Unsupported key type'
+    end
+  end
+  
   # Loads public keys to be used by a server.
   def self.load_public_keys(file_name = nil)
     key_list = read_known_hosts_keys file_name
@@ -41,5 +64,9 @@ class RTunnel::Crypto::KeySet
   
   def [](key_fp)
     @keys_by_fp[key_fp]
+  end
+  
+  def length
+    @keys_by_fp.length
   end
 end
