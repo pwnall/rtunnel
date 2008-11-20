@@ -81,7 +81,7 @@ class TunnelTest < Test::Unit::TestCase
         print "Starting client\n"
         EventMachine::connect @local_host, @listen_port,
             ScenarioConnection, self, [[:recv, 'Hello'], [:send, 'World'],
-                                       [:unbind], [:stop, @stop_proc]]
+                                       [:unbind], [:stop]]
       end
     end    
   end
