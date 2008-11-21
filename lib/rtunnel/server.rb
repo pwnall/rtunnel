@@ -193,7 +193,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
         @hasher = Crypto::Hasher.new
         encrypted_key = Crypto.encrypt_with_key public_key, @hasher.key
       else
-        D "Rejecting unauthorized client key"
+        D("Rejecting unauthorized client key (%s authorized keys)" %
+          @server.authorized_keys.length)
         encrypted_key = 'NO'
       end
     else
