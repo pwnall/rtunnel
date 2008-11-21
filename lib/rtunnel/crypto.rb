@@ -6,18 +6,20 @@ require 'rubygems'
 require 'net/ssh'
 
 module RTunnel::Crypto
-  # Reads all the keys from an openssh known_hosts file.
-  # If no file name is given, the default ~/.ssh/known_hosts will be used.
-  def self.read_known_hosts_keys(file_name = nil)
-    if file_name
-      Net::SSH::KnownHosts.search_in file_name, ''
-    else
-      Net::SSH::KnownHosts.search_for ''
+  # Reads all the keys from an openssh known_hosts or authorized_keys2 file.
+  def self.read_authorized_keys(file_name)
+    keys = []
+    File.read(file_name).each_line do |line|
+      pubkey_match = /ssh-\w*\s*(\S*)/.match line
+      next unless pubkey_match
+      pubkey_blob = pubkey_match[1].unpack('m*').first      
+      keys << Net::SSH::Buffer.new(pubkey_blob).read_key
     end
+    return keys
   end
   
   # Loads a private key from an openssh key file.
-  def self.read_private_key(file_name = nil)
+  def self.read_private_key(file_name)
     Net::SSH::KeyFactory.load_private_key file_name
   end
   
@@ -51,8 +53,8 @@ module RTunnel::Crypto
   end
   
   # Loads public keys to be used by a server.
-  def self.load_public_keys(file_name = nil)
-    key_list = read_known_hosts_keys file_name
+  def self.load_public_keys(file_name)
+    key_list = read_authorized_keys file_name
     RTunnel::Crypto::KeySet.new key_list
   end
 end

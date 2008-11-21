@@ -9,6 +9,7 @@ class CryptoTest < Test::Unit::TestCase
   @@rsa_key_path = 'test_data/ssh_host_rsa_key' 
   @@dsa_key_path = 'test_data/ssh_host_dsa_key' 
   @@known_hosts_path = 'test_data/known_hosts' 
+  @@authorized_keys_path = 'test_data/authorized_keys2'
   
   def test_read_private_key
     key = C.read_private_key @@rsa_key_path
@@ -20,20 +21,28 @@ class CryptoTest < Test::Unit::TestCase
     assert_equal OpenSSL::PKey::DSA, key.class
   end
   
-  def test_read_known_hosts_keys
-    keys = C.read_known_hosts_keys @@known_hosts_path
-    
+  def test_read_known_hosts
+    keys = C.read_authorized_keys @@known_hosts_path    
+    verify_authorized_keys keys    
+  end
+
+  def test_read_authorized_keys
+    keys = C.read_authorized_keys @@authorized_keys_path
+    verify_authorized_keys keys    
+  end
+  
+  def verify_authorized_keys(keys)
     assert_equal 4, keys.length
     assert_equal [OpenSSL::PKey::RSA] * 3 + [OpenSSL::PKey::DSA],
                  keys.map { |k| k.class }
     assert_equal C.read_private_key(@@rsa_key_path).public_key.to_pem,
                  keys[1].to_pem
     assert_equal C.read_private_key(@@dsa_key_path).public_key.to_pem,
-                 keys[3].to_pem
+                 keys[3].to_pem    
   end
   
   def test_key_fingerprint
-    keys = C.read_known_hosts_keys @@known_hosts_path
+    keys = C.read_authorized_keys @@known_hosts_path
 
     assert_equal 4, keys.map { |k| C.key_fingerprint k }.uniq.length
     keys.each { |k| assert_equal C.key_fingerprint(k), C.key_fingerprint(k) }
