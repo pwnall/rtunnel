@@ -29,7 +29,7 @@ module RTunnel::FrameProtocol
         @frame_incomplete, @frame_buffer = '', nil
       else
         # buffer frame fragment
-        @frame_buffer += data[i..-1]
+        @frame_buffer << data[i..-1]
         @frame_incomplete -= data.length - i
         break
       end

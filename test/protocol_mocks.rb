@@ -8,7 +8,7 @@ class EmSendMock
   end
   
   def send_data(data)
-    @string += data
+    @string << data
   end
 end
 

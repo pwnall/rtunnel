@@ -262,7 +262,7 @@ class RTunnel::Client::TunnelConnection < EventMachine::Connection
     # if the connection hasn't been accepted, store the incoming data until
     # sending can happen
     if @backlog
-      @backlog += data
+      @backlog << data
     else
       send_data data
     end
