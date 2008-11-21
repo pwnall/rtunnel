@@ -92,11 +92,11 @@ class ScenarioConnection < EventMachine::Connection
     if stop_proc.kind_of? Proc
       # call the proc, then give em time to stop all its servers
       stop_proc.call
-      EventMachine::add_timer 0.1 do
-        EventMachine::stop_event_loop
+      EventMachine.add_timer 0.1 do
+        EventMachine.stop_event_loop
       end
     else
-      EventMachine::stop_event_loop    
+      EventMachine.stop_event_loop    
     end
   end
 end

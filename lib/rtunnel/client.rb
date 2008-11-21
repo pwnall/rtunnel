@@ -29,7 +29,7 @@ class RTunnel::Client
     
   def connect_to_server
     D "Connecting to #{@control_host} port #{@control_port}"
-    @server_connection = EventMachine::connect @control_host, @control_port,
+    @server_connection = EventMachine.connect @control_host, @control_port,
                                                Client::ServerConnection, self
   end
   
@@ -78,7 +78,7 @@ class RTunnel::Client
   end
   
   def self.extract_private_key(key_file)
-    key_file and Crypto::read_private_key key_file
+    key_file and Crypto.read_private_key key_file
   end
 end
 
@@ -126,14 +126,14 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   # Asks the server to establish a session key with this client.
   def request_session_key
     D 'Private key provided, asking server for session key'
-    key_fp = Crypto::key_fingerprint @client.private_key
+    key_fp = Crypto.key_fingerprint @client.private_key
     send_command GenerateSessionKeyCommand.new(key_fp)    
   end
   
   def unbind
     # wait for a second, then try connecting again
     W 'Lost server connection, will reconnect in 1s'
-    EventMachine::add_timer(1.0) { client.connect_to_server }
+    EventMachine.add_timer(1.0) { client.connect_to_server }
     @connections.each { |conn_id, conn| conn.close_connection_after_writing }
     @connections.clear
   end
@@ -149,7 +149,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     end
     
     D "Tunnel #{connection_id} to #{@tunnel_to_host} port #{@tunnel_to_port}"
-    connection = EventMachine::connect(@tunnel_to_host, @tunnel_to_port,
+    connection = EventMachine.connect(@tunnel_to_host, @tunnel_to_port,
         Client::TunnelConnection, connection_id, @client)
     @connections[connection_id] = connection
   end

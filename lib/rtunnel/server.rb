@@ -30,15 +30,15 @@ class RTunnel::Server
   
   def stop
     return unless @control_listener
-    EventMachine::stop_server @control_listener
+    EventMachine.stop_server @control_listener
     @control_listener = nil
   end
   
   def start_server
     D "Control server on #{@control_host} port #{@control_port}"
-    @control_listener = EventMachine::start_server @control_host, @control_port,
-                                                   Server::ControlConnection,
-                                                   self
+    @control_listener = EventMachine.start_server @control_host, @control_port,
+                                                  Server::ControlConnection,
+                                                  self
   end
   
   # Creates a listener on a certain port. The given block should create and
@@ -48,10 +48,10 @@ class RTunnel::Server
   def create_tunnel_listener(listen_port, control_connection, &creation_block)
     if old_control = @tunnel_controls[listen_port]
       D "Closing old listener on port #{listen_port}"
-      EventMachine::stop_server old_control.listener
+      EventMachine.stop_server old_control.listener
     end
     
-    EventMachine::next_tick do
+    EventMachine.next_tick do
       yield
       @tunnel_controls[listen_port] = control_connection
       redirect_tunnel_connections old_control, control_connection if old_control
@@ -106,7 +106,7 @@ class RTunnel::Server
   end
   
   def self.extract_authorized_keys(keys_file)
-    keys_file and Crypto::load_public_keys keys_file
+    keys_file and Crypto.load_public_keys keys_file
   end
 end
 
@@ -158,7 +158,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     
     @server.create_tunnel_listener listen_port, self do
       D "Creating listener for #{listen_host} port #{listen_port}"
-      @listener = EventMachine::start_server listen_host, listen_port,
+      @listener = EventMachine.start_server listen_host, listen_port,
                                              Server::TunnelConnection, self,
                                              listen_host, listen_port
     end
