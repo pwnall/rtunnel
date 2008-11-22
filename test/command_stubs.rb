@@ -52,7 +52,7 @@ module CommandStubs
   end
   def verify_set_sk(cmd)
     assert_equal RTunnel::SetSessionKeyCommand, cmd.class
-    assert_equal @@ekey, cmd.encrypted_key
+    assert_equal @@ekey, cmd.encrypted_keys
   end
 
   def generate_gen_sk

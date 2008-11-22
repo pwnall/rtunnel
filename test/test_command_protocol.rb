@@ -30,13 +30,13 @@ class CommandProtocolTest < Test::Unit::TestCase
   end
   
   def commandset_test(names)
-    @send_mock.command_hasher = @hasher if @hasher
+    @send_mock.outgoing_command_hasher = @hasher if @hasher
     names.each do |name|
       command = self.send "generate_#{name}".to_sym
       @send_mock.send_command command
     end
     receive_mock = EmReceiveCommandsMock.new([@send_mock.string])
-    receive_mock.command_hasher = C::Hasher.new(@hasher.key) if @hasher
+    receive_mock.incoming_command_hasher = C::Hasher.new(@hasher.key) if @hasher
     o_commands = receive_mock.replay.commands
     self.assert_equal names.length, o_commands.length
     names.each_index do |i|
@@ -56,7 +56,7 @@ class CommandProtocolTest < Test::Unit::TestCase
     
     define_method "test_signed_#{name}_has_signature".to_sym do
       sig_send_mock = EmSendCommandsMock.new
-      sig_send_mock.command_hasher = C::Hasher.new
+      sig_send_mock.outgoing_command_hasher = C::Hasher.new
       outputs = [@send_mock, sig_send_mock].map do |mock|
         mock.send_command self.send("generate_#{name}".to_sym)
         mock.string
@@ -66,7 +66,7 @@ class CommandProtocolTest < Test::Unit::TestCase
     end
     
     define_method "test_signed_#{name}_enforces_signature".to_sym do
-      @send_mock.command_hasher = hasher = C::Hasher.new
+      @send_mock.outgoing_command_hasher = hasher = C::Hasher.new
       @send_mock.send_command self.send("generate_#{name}".to_sym)      
       signed_str = @send_mock.string
       
@@ -74,7 +74,7 @@ class CommandProtocolTest < Test::Unit::TestCase
         bad_str = signed_str.dup
         bad_str[i] ^= 0x01
         recv_mock = EmReceiveCommandsMock.new([bad_str])
-        recv_mock.command_hasher = C::Hasher.new hasher.key
+        recv_mock.incoming_command_hasher = C::Hasher.new hasher.key
         assert_equal [], recv_mock.replay.commands
       end      
     end

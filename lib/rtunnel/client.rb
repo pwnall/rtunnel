@@ -182,8 +182,8 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   end
 
   # SetSessionKey handler
-  def process_set_session_key(encrypted_key)
-    case encrypted_key
+  def process_set_session_key(encrypted_keys)
+    case encrypted_keys
     when ''
       W "Sent key to open tunnel server"
       request_listen
@@ -195,10 +195,15 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
       end
       close_connection_after_writing
     else
-      D "Received server session key, installing hasher"
-      hasher_key = Crypto.decrypt_with_key client.private_key, encrypted_key
-      @hasher = Crypto::Hasher.new hasher_key
-      self.command_hasher = @hasher
+      D "Received server session keys, installing hashers"
+      iokeys = StringIO.new Crypto.decrypt_with_key(client.private_key,
+                                                    encrypted_keys)
+      @out_hasher = Crypto::Hasher.new iokeys.read_varstring
+      @in_hasher = Crypto::Hasher.new iokeys.read_varstring
+      self.outgoing_command_hasher = @out_hasher
+      self.incoming_command_hasher = @in_hasher
+      
+      D "Hashers installed, opening listen socket on server"
       request_listen
     end
   end

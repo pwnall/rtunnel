@@ -205,25 +205,25 @@ end
 class RTunnel::SetSessionKeyCommand < RTunnel::Command
   command_code 'K'
   
-  attr_reader :encrypted_key
+  attr_reader :encrypted_keys
 
-  def initialize(encrypted_key = nil)
+  def initialize(encrypted_keys = nil)
     super()
-    @encrypted_key = encrypted_key
+    @encrypted_keys = encrypted_keys
   end
   
   def to_s
-    super + "/enc_key=#{@encrypted_key.inspect}"
+    super + "/enc_keys=#{@encrypted_key.inspect}"
   end
   
   def initialize_from_io(io)
     super
-    @encrypted_key = io.read_varstring
+    @encrypted_keys = io.read_varstring
   end
   
   def encode(io)
     super
-    io.write_varstring @encrypted_key
+    io.write_varstring @encrypted_keys
   end
 end
 

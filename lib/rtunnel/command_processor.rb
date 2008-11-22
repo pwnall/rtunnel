@@ -16,7 +16,7 @@ module RTunnel::CommandProcessor
     when RTunnel::SendDataCommand
       process_send_data command.connection_id, command.data
     when RTunnel::SetSessionKeyCommand
-      process_set_session_key command.encrypted_key
+      process_set_session_key command.encrypted_keys
     end
   end
 
@@ -51,7 +51,7 @@ module RTunnel::CommandProcessor
   end
   
   # Override to process SetSessionKeyCommand. Do NOT call super.
-  def process_set_session_key(encrypted_key)
+  def process_set_session_key(encrypted_keys)
     unexpected_command @last_command
   end
   
