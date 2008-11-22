@@ -208,6 +208,16 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     end
   end
   
+  def receive_bad_frame(frame, exception)
+    case exception
+    when :bad_signature
+      D "Ignoring command with invalid signature"
+    when Exception
+      D "Ignoring malformed command."
+      D "Decoding exception: #{exception.class.name} - #{exception}\n" +
+        "#{exception.backtrace.join("\n")}\n"
+    end
+  end  
   
   ## Ping verification
   

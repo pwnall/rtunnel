@@ -222,7 +222,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
       encrypted_keys = ''
     end
     send_command SetSessionKeyCommand.new(encrypted_keys)
-    self.command_hasher = @hasher if @hasher
+    self.incoming_command_hasher = @in_hasher if @in_hasher
+    self.outgoing_command_hasher = @out_hasher if @out_hasher
   end
   
   def receive_bad_frame(frame, exception)

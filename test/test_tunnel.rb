@@ -129,6 +129,22 @@ class TunnelTest < Test::Unit::TestCase
     end
   end
 
+  def test_secure_async_tunnel
+    @tunnel_server = new_server :authorized_keys => @hosts_file
+    @tunnel_client = new_client :private_key => @key_file
+    tunnel_test do
+      @tunnel_server.on_remote_listen do
+        EventMachine::start_server @local_host, @tunnel_port,
+            ScenarioConnection, self, [[:send, 'World'], [:recv, 'Hello'],
+                                       [:unbind], [:stop, @stop_proc]]
+
+        EventMachine::connect @local_host, @listen_port,
+            ScenarioConnection, self, [[:send, 'Hello'], [:recv, 'World'],
+                                       [:close]]
+      end
+    end
+  end
+
   # TODO: fix this
   def TODO_test_secure_server_rejects_unsecure_client
     @tunnel_server = new_server :authorized_keys => @hosts_file
