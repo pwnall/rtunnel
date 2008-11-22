@@ -95,7 +95,13 @@ class RTunnel::Server
 
   def self.extract_control_address(address)
     return "0.0.0.0:#{RTunnel::DEFAULT_CONTROL_PORT}" unless address
-    host, port = address.split(':', 2)
+    if address =~ /^\d+$/
+      host = nil
+      port = address.to_i
+    else
+      host = SocketFactory.host_from_address address
+      port = SocketFactory.port_from_address address
+    end
     host = RTunnel.resolve_address(host || "0.0.0.0")
     port ||= RTunnel::DEFAULT_CONTROL_PORT.to_s
     return "#{host}:#{port}"
