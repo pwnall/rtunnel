@@ -44,7 +44,7 @@ module RTunnel::IOExtensions
     str = read length
     return '' if length == 0
     if !str || str.length != length
-      raise RTunnel::TruncatedDataError.new("Encoded varstring truncated")
+      raise RTunnel::TruncatedDataError, "Encoded varstring truncated"
     else
       return str
     end
