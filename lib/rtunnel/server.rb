@@ -21,7 +21,8 @@ class RTunnel::Server
     @tunnel_connections = {}
     @tunnel_connections_by_control = {}
   end
-    def start
+
+  def start
     return if @control_listener
     @control_host = SocketFactory.host_from_address @control_address
     @control_port = SocketFactory.port_from_address @control_address
@@ -55,7 +56,8 @@ class RTunnel::Server
       yield
       @tunnel_controls[listen_port] = control_connection
       redirect_tunnel_connections old_control, control_connection if old_control
-    end    
+      on_remote_listen
+    end
   end
   
   # Registers a tunnel connection, so it can receive data.
@@ -81,7 +83,15 @@ class RTunnel::Server
     @tunnel_connections_by_control[new_control] ||= Set.new
     @tunnel_connections_by_control[new_control] += old_connections
   end
-  
+
+  def on_remote_listen(&block)
+    if block
+      @on_remote_listen = block
+    elsif @on_remote_listen
+      @on_remote_listen.call
+    end 
+  end
+
   ## option processing
   
   def process_options(options)
@@ -172,7 +182,7 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     D "Listening on #{listen_host} port #{listen_port}"
   end
   
-  def process_send_data(tunnel_connection_id, data)    
+  def process_send_data(tunnel_connection_id, data)
     tunnel_connection = @tunnel_connections[tunnel_connection_id]
     if tunnel_connection
       D "Data: #{data.length} bytes coming from #{tunnel_connection_id}"
@@ -260,7 +270,7 @@ class RTunnel::Server::TunnelConnection < EventMachine::Connection
     @control_connection = control_connection
     @server = @control_connection.server
     @hasher = nil
-    
+
     init_log :to => @server
   end
   

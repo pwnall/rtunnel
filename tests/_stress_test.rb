@@ -3,8 +3,6 @@ require 'eventmachine'
 require 'logger'
 require 'stringio'
 
-require 'rtunnel'
-
 CONCURRENT_CONNECTIONS = 50
 DISPLAY_RTUNNEL_OUTPUT = true
 TUNNEL_PORT = 5000
@@ -13,7 +11,7 @@ HTTP_PORT = 4444
 #################
 
 TUNNEL_URI = "http://localhost:#{TUNNEL_PORT}"
-EXPECTED_DATA = (0..16*1024).map{rand(?z).chr[/[^_\W]/]||redo}*''  # golf for random data
+EXPECTED_DATA = Array.new (5*1024) { rand(256).chr }.join ''
 
 $pids = [$$]
 
@@ -21,8 +19,7 @@ def cleanup
   puts $!, $@  if $!
 
   # move the current process to the end of the kill list
-  $pids.delete $$
-  $pids << $$
+  $pids << $pids.delete($$)
   $pids.each {|pid| Process.kill 9, pid  rescue nil }
 
   exit!
