@@ -7,7 +7,7 @@ module RTunnel::ConnectionId
     cipher = OpenSSL::Cipher::Cipher.new 'aes-128-ecb'
     cipher.encrypt
     cipher.key, cipher.iv = cipher.random_key, cipher.random_iv
-    return cipher
+    cipher
   end
   
   def self.new_counter
@@ -19,6 +19,6 @@ module RTunnel::ConnectionId
     @session_id_counter ||= RTunnel::ConnectionId.new_counter
     connection_id = @session_id_cipher.update @session_id_counter
     @session_id_counter.succ!
-    return Base64.encode64(connection_id).strip
+    Base64.encode64(connection_id).strip
   end
 end

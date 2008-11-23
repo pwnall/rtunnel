@@ -15,7 +15,7 @@ module RTunnel::Crypto
       pubkey_blob = pubkey_match[1].unpack('m*').first      
       keys << Net::SSH::Buffer.new(pubkey_blob).read_key
     end
-    return keys
+    keys
   end
   
   # Loads a private key from an openssh key file.
@@ -101,6 +101,6 @@ class RTunnel::Crypto::Hasher
     iokey = StringIO.new
     iokey.write_varstring cipher.random_key
     iokey.write_varstring cipher.random_iv
-    return iokey.string
+    iokey.string
   end  
 end
