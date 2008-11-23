@@ -15,9 +15,7 @@ module RTunnel::FrameProtocol
       end
 
       return  if @frame_buffer.nil?
-
-      remaining_bytes = data.size - i
-      break  if @remaining_frame_size > remaining_bytes
+      break  if @remaining_frame_size > data.size - i
 
       receive_frame(@frame_buffer + data[i, @remaining_frame_size])
       @incomplete_frame, @frame_buffer = '', nil
