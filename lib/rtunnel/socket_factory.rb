@@ -110,7 +110,7 @@ module RTunnel::SocketFactory
     else
       connect s, options
     end
-    return s
+    s
   end
   
   def socket(options = {})

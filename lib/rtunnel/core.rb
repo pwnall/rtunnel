@@ -51,7 +51,7 @@ module RTunnel
   def self.resolve_address(address, timeout_sec = 5)
     host, rest = address.split(':', 2)
     ip = timeout(timeout_sec) { Resolv.getaddress(host) }
-    return rest ? "#{ip}:#{rest}" : ip
+    rest ? "#{ip}:#{rest}" : ip
   rescue Exception
     raise AbortProgramException, "Error resolving #{host}" 
   end  

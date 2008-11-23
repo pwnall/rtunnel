@@ -114,7 +114,7 @@ class RTunnel::Server
     end
     host = RTunnel.resolve_address(host || "0.0.0.0")
     port ||= RTunnel::DEFAULT_CONTROL_PORT.to_s
-    return "#{host}:#{port}"
+    "#{host}:#{port}"
   end
   
   def self.extract_ping_interval(interval)

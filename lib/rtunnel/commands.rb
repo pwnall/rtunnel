@@ -29,7 +29,6 @@ class RTunnel::Command
       ret_val = []
       @codes.each { |klass, code| ret_val << [code, klass.name] }
       ret_val.sort!
-      return ret_val
     end
   end
   
@@ -64,7 +63,7 @@ class RTunnel::Command
   def to_encoded_str
     string_io = StringIO.new
     self.encode string_io
-    return string_io.string
+    string_io.string
   end
 
   # Decode a Command instance from a IO / IOString.
@@ -75,7 +74,6 @@ class RTunnel::Command
 
     command = klass.new
     command.initialize_from_io io
-    command
   end
 
   # Printable string containing all the codes and their classes.
@@ -103,6 +101,7 @@ class RTunnel::ConnectionCommand < RTunnel::Command
   def initialize_from_io(io)
     super
     @connection_id = io.read_varstring
+    self
   end
   
   def encode(io)
@@ -132,6 +131,7 @@ class RTunnel::SendDataCommand < RTunnel::ConnectionCommand
   def initialize_from_io(io)
     super
     @data = io.read_varstring
+    self    
   end
 
   def to_s
@@ -161,6 +161,7 @@ class RTunnel::RemoteListenCommand < RTunnel::Command
   def initialize_from_io(io)
     super
     @address = io.read_varstring
+    self    
   end
   
   def encode(io)
@@ -193,7 +194,8 @@ class RTunnel::GenerateSessionKeyCommand < RTunnel::Command
   
   def initialize_from_io(io)
     super
-    @public_key_fp = io.read_varstring    
+    @public_key_fp = io.read_varstring
+    self    
   end
   
   def encode(io)
@@ -219,6 +221,7 @@ class RTunnel::SetSessionKeyCommand < RTunnel::Command
   def initialize_from_io(io)
     super
     @encrypted_keys = io.read_varstring
+    self    
   end
   
   def encode(io)

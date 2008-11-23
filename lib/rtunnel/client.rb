@@ -251,7 +251,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
 
   # If true, a ping timeout has occured.
   def ping_timeout?
-    return Time.now - @last_ping > client.ping_timeout
+    Time.now - @last_ping > client.ping_timeout
   end  
 end
 
