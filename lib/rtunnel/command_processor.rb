@@ -9,8 +9,8 @@ module RTunnel::CommandProcessor
       process_create_connection command.connection_id
     when RTunnel::GenerateSessionKeyCommand
       process_generate_session_key command.public_key_fp
-    when RTunnel::PingCommand
-      process_ping
+    when RTunnel::KeepAliveCommand
+      process_keep_alive
     when RTunnel::RemoteListenCommand
       process_remote_listen command.address
     when RTunnel::SendDataCommand
@@ -35,8 +35,8 @@ module RTunnel::CommandProcessor
     unexpected_command @last_command
   end
   
-  # Override to process PingCommand. Do NOT call super.
-  def process_ping
+  # Override to process KeepAliveCommand. Do NOT call super.
+  def process_keep_alive
     unexpected_command @last_command
   end
 

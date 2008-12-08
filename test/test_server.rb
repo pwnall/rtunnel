@@ -22,8 +22,9 @@ class ServerTest < Test::Unit::TestCase
     assert_equal "0.0.0.0:9199",
                  server.extract_control_address('9199')
 
-    assert_equal RTunnel::PING_INTERVAL, server.extract_ping_interval(nil)
-    assert_equal 29, server.extract_ping_interval(29)
+    assert_equal RTunnel::KEEP_ALIVE_INTERVAL,
+                 server.extract_keep_alive_interval(nil)
+    assert_equal 29, server.extract_keep_alive_interval(29)
     
     assert_equal nil, server.extract_authorized_keys(nil)
     keyset = server.extract_authorized_keys 'test_data/known_hosts'
