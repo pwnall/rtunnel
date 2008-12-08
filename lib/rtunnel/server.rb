@@ -241,9 +241,24 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   
   ## Keep-Alives (preventing timeouts)
   
+  #:nodoc:
+  def send_command(command)
+    @last_command_time = Time.now
+    super
+  end
+
   # Enables sending KeepAliveCommands every few seconds.
   def enable_keep_alives
-    @keep_alive_timer = EventMachine::PeriodicTimer.new @keep_alive_interval do
+    @last_command_time = Time.now
+    @keep_alive_timer =
+        EventMachine::PeriodicTimer.new(@keep_alive_interval / 2) do
+      keep_alive_if_needed
+    end
+  end
+
+  # Sends a KeepAlive command if no command was sent recently.
+  def keep_alive_if_needed
+    if Time.now - @last_command_time >= @keep_alive_interval
       send_command KeepAliveCommand.new
     end
   end
