@@ -7,11 +7,11 @@ module CommandStubs
   @@ekey = (128...192).to_a.pack('C*') * 8
   @@pubfp = (0...128).to_a.pack('C*') * 5
   
-  def generate_ping
-    RTunnel::PingCommand.new
+  def generate_keep_alive
+    RTunnel::KeepAliveCommand.new
   end
-  def verify_ping(cmd)
-    assert_equal RTunnel::PingCommand, cmd.class
+  def verify_keep_alive(cmd)
+    assert_equal RTunnel::KeepAliveCommand, cmd.class
   end
   
   def generate_create
@@ -66,12 +66,12 @@ module CommandStubs
   # An array with the names of all commands.
   # Use these names to obtain the names of the genrate_ and verify_ methods.
   def self.command_names
-    [:ping, :create, :close, :listen, :send, :gen_sk, :set_sk]
+    [:keep_alive, :create, :close, :listen, :send, :gen_sk, :set_sk]
   end
 
   # A sequence of command names useful for testing "real" connections.
   def self.command_test_sequence
-    [:create, :ping, :gen_sk, :set_sk, :ping, :listen, :ping, :send, :send,
-     :ping, :ping, :send, :close]
+    [:create, :keep_alive, :gen_sk, :set_sk, :keep_alive, :listen, :keep_alive,
+     :send, :send, :keep_alive, :keep_alive, :send, :close]
   end
 end

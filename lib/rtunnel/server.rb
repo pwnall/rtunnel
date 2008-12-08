@@ -12,7 +12,7 @@ class RTunnel::Server
   include RTunnel::ConnectionId
   
   attr_reader :control_address, :control_host, :control_port
-  attr_reader :ping_interval, :authorized_keys
+  attr_reader :keep_alive_interval, :authorized_keys
   attr_reader :tunnel_connections
   
   def initialize(options = {})
@@ -95,7 +95,7 @@ class RTunnel::Server
   ## option processing
   
   def process_options(options)
-    [:control_address, :ping_interval, :authorized_keys].each do |opt|
+    [:control_address, :keep_alive_interval, :authorized_keys].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -117,8 +117,8 @@ class RTunnel::Server
     "#{host}:#{port}"
   end
   
-  def self.extract_ping_interval(interval)
-    interval || RTunnel::PING_INTERVAL
+  def self.extract_keep_alive_interval(interval)
+    interval || RTunnel::KEEP_ALIVE_INTERVAL
   end
   
   def self.extract_authorized_keys(keys_file)
@@ -142,7 +142,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     @server = server
     @tunnel_connections = server.tunnel_connections
     @listener = nil
-    @ping_timer = nil
+    @keep_alive_timer = nil
+    @keep_alive_interval = server.keep_alive_interval
     @in_hasher = @out_hasher = nil
     
     init_log :to => @server
@@ -151,12 +152,12 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   def post_init
     @client_port, @client_host = *Socket.unpack_sockaddr_in(get_peername)
     D "Established connection with #{@client_host} port #{@client_port}"
-    enable_pinging
+    enable_keep_alives
   end
   
   def unbind
     D "Lost connection from #{@client_host} port #{@client_port}"
-    disable_pinging
+    disable_keep_alives
   end
   
   
@@ -238,20 +239,20 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   end
   
   
-  ## Pinging
+  ## Keep-Alives (preventing timeouts)
   
-  # Enables sending PingCommands every few seconds.
-  def enable_pinging
-    @ping_timer = EventMachine::PeriodicTimer.new 2.0 do
-      send_command PingCommand.new
-     end
+  # Enables sending KeepAliveCommands every few seconds.
+  def enable_keep_alives
+    @keep_alive_timer = EventMachine::PeriodicTimer.new @keep_alive_interval do
+      send_command KeepAliveCommand.new
+    end
   end
   
-  # Disables processing of ping timeouts.
-  def disable_pinging
-    return unless @ping_timer
-    @ping_timer.cancel
-    @ping_timer = nil
+  # Disables sending KeepAlives.
+  def disable_keep_alives
+    return unless @keep_alive_timer
+    @keep_alive_timer.cancel
+    @keep_alive_timer = nil
   end  
 end
 

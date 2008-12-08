@@ -10,7 +10,7 @@ class RTunnel::Client
 
   attr_reader :control_address, :control_host, :control_port
   attr_reader :remote_listen_address, :tunnel_to_address
-  attr_reader :ping_timeout, :private_key
+  attr_reader :tunnel_timeout, :private_key
   attr_reader :logger
   attr_reader :connections, :server_connection
   
@@ -38,7 +38,7 @@ class RTunnel::Client
     
     return unless @server_connection
     @server_connection.close_connection_after_writing
-    @server_connection.disable_ping_timeouts
+    @server_connection.disable_tunnel_timeouts
     @server_connection = nil
   end
   
@@ -46,7 +46,7 @@ class RTunnel::Client
   
   def process_options(options)
     [:control_address, :remote_listen_address, :tunnel_to_address,
-     :ping_timeout, :private_key].each do |opt|
+     :tunnel_timeout, :private_key].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Client.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -73,8 +73,8 @@ class RTunnel::Client
     RTunnel.resolve_address address
   end
   
-  def self.extract_ping_timeout(timeout)
-    timeout || RTunnel::PING_TIMEOUT
+  def self.extract_tunnel_timeout(timeout)
+    timeout || RTunnel::TUNNEL_TIMEOUT
   end
   
   def self.extract_private_key(key_file)
@@ -103,7 +103,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     @tunnel_to_address = client.tunnel_to_address
     @tunnel_to_host = SocketFactory.host_from_address @tunnel_to_address
     @tunnel_to_port = SocketFactory.port_from_address @tunnel_to_address
-    @ping_timer = nil
+    @timeout_timer = nil
     @hasher = nil
     @connections = @client.connections
     init_log :to => @client
@@ -120,7 +120,7 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   # Asks the server to open a listen socket for this client's tunnel.
   def request_listen
     send_command RemoteListenCommand.new(@client.remote_listen_address)
-    enable_ping_timeouts    
+    enable_tunnel_timeouts    
   end
 
   # Asks the server to establish a session key with this client.
@@ -219,39 +219,47 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
     end
   end  
   
-  ## Ping verification
-  
-  # Acknowledge a ping received from the control connection.
-  def process_ping
-    @last_ping = Time.now
+  ## Connection timeouts.
+
+  # Keep-alive received from the control connection.
+  def process_keep_alive
   end  
-  
-  # After this is called, the control connection will be closed if no
-  # PingCommand is received within a certain amount of time.
-  def enable_ping_timeouts
-    @last_ping = Time.now
-    @ping_timer = EventMachine::PeriodicTimer.new(1.0) { check_ping_timeout }
+
+  #:nodoc:
+  def receive_command(command) 
+    @last_packet_time = Time.now
+    super
+  end
+    
+  # After this is called, the control connection will be closed if no command is
+  # received within a certain amount of time.
+  def enable_tunnel_timeouts
+    @last_packet_time = Time.now
+    @timeout_timer = EventMachine::PeriodicTimer.new(1.0) do
+      check_tunnel_timeout
+    end
   end
   
-  # Closes the connection if no PingCommand has been received for some time.
-  def check_ping_timeout
-    if ping_timeout?
-      W 'Ping timeout. Disconnecting from server.'
-      disable_ping_timeouts
+  # Closes the connection if no command has been received for some time.
+  def check_tunnel_timeout
+    if tunnel_timeout?
+      W 'Tunnel timeout. Disconnecting from server.'
+      disable_tunnel_timeouts
       close_connection_after_writing
     end
   end
   
-  # Disables processing of ping timeouts.
-  def disable_ping_timeouts
-    return unless @ping_timer
-    @ping_timer.cancel
-    @ping_timer = nil
+  # Disables timeout checking (so the tunnel will not be torn down if no command
+  # is received for some period of time).
+  def disable_tunnel_timeouts
+    return unless @timeout_timer
+    @timeout_timer.cancel
+    @timeout_timer = nil
   end
 
-  # If true, a ping timeout has occured.
-  def ping_timeout?
-    Time.now - @last_ping > client.ping_timeout
+  # If true, a tunnel timeout has occured.
+  def tunnel_timeout?
+    Time.now - @last_packet_time > client.tunnel_timeout
   end  
 end
 

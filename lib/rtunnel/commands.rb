@@ -170,8 +170,8 @@ class RTunnel::RemoteListenCommand < RTunnel::Command
   end
 end
 
-class RTunnel::PingCommand < RTunnel::Command
-  command_code 'P'
+class RTunnel::KeepAliveCommand < RTunnel::Command
+  command_code 'A'
   
   def initialize_from_io(io)
     super

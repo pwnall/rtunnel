@@ -2,8 +2,8 @@ require 'logger'
 
 module RTunnel
   DEFAULT_CONTROL_PORT = 19050
-  PING_TIMEOUT = 10
-  PING_INTERVAL = 2
+  TUNNEL_TIMEOUT = 10
+  KEEP_ALIVE_INTERVAL = 2
 
   class AbortProgramException < Exception
     

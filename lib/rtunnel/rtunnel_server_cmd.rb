@@ -14,6 +14,9 @@ module RTunnel
         options[:authorized_keys] = f
       end
       o.on("-l", "--log-level LEVEL") { |l| options[:log_level] = l }
+      o.on("-k", "--keep-alive KEEP_ALIVE_INTERVAL") do |t|
+        options[:keep_alive_interval] = t.to_f
+      end
     end).parse!  rescue (puts opts; return)
 
     EventMachine::run do

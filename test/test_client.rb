@@ -9,7 +9,8 @@ class ClientTest < Test::Unit::TestCase
     @client = RTunnel::Client.new(:control_address => 'localhost',
                                   :remote_listen_address => '9199',
                                   :tunnel_to_address => '4444',
-                                  :private_key => 'test_data/ssh_host_rsa_key')
+                                  :private_key => 'test_data/ssh_host_rsa_key',
+                                  :tunnel_timeout => 5)
     @localhost_addr = Resolv.getaddress 'localhost'
   end
   
@@ -36,8 +37,8 @@ class ClientTest < Test::Unit::TestCase
     assert_equal "#{@localhost_addr}:9199",
                  client.extract_tunnel_to_address('9199')
                  
-    assert_equal RTunnel::PING_TIMEOUT, client.extract_ping_timeout(nil)
-    assert_equal 29, client.extract_ping_timeout(29)
+    assert_equal RTunnel::TUNNEL_TIMEOUT, client.extract_tunnel_timeout(nil)
+    assert_equal 29, client.extract_tunnel_timeout(29)
     
     assert_equal nil, client.extract_private_key(nil)
     key = client.extract_private_key 'test_data/ssh_host_rsa_key'

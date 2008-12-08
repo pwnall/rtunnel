@@ -24,6 +24,9 @@ module RTunnel
       o.on("-l", "--log-level LEVEL") do |l|
         options[:log_level] = l
       end
+      o.on("-o", "--timeout TIMEOUT_IN_SECONDS") do |t|
+        options[:tunnel_timeout] = t.to_f
+      end
     end).parse!  rescue (puts opts; return)
     
     mandatory_keys = [:control_address, :remote_listen_address,
