@@ -53,10 +53,11 @@ class RTunnel::Server
     end
     
     EventMachine.next_tick do
-      yield
-      @tunnel_controls[listen_port] = control_connection
-      redirect_tunnel_connections old_control, control_connection if old_control
-      on_remote_listen
+      if yield
+        @tunnel_controls[listen_port] = control_connection
+        redirect_tunnel_connections old_control, control_connection if old_control
+        on_remote_listen
+      end
     end
   end
   
@@ -175,9 +176,15 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     
     @server.create_tunnel_listener listen_port, self do
       D "Creating listener for #{listen_host} port #{listen_port}"
-      @listener = EventMachine.start_server listen_host, listen_port,
-                                             Server::TunnelConnection, self,
-                                             listen_host, listen_port
+      begin
+        @listener = EventMachine.start_server listen_host, listen_port,
+                                               Server::TunnelConnection, self,
+                                               listen_host, listen_port
+      rescue RuntimeError => e
+        # EventMachine raises 'no acceptor' if the listen address is invalid
+        E "Invalid listen address #{listen_host}"        
+        @listener = nil
+      end
     end
     
     D "Listening on #{listen_host} port #{listen_port}"
