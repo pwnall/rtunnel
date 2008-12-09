@@ -53,11 +53,11 @@ class RTunnel::Server
     end
     
     EventMachine.next_tick do
-      if yield
-        @tunnel_controls[listen_port] = control_connection
-        redirect_tunnel_connections old_control, control_connection if old_control
-        on_remote_listen
-      end
+      next unless yield
+      
+      @tunnel_controls[listen_port] = control_connection
+      redirect_tunnel_connections old_control, control_connection if old_control
+      on_remote_listen
     end
   end
   
