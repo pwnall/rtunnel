@@ -17,6 +17,12 @@ module RTunnel
       o.on("-k", "--keep-alive KEEP_ALIVE_INTERVAL") do |t|
         options[:keep_alive_interval] = t.to_f
       end
+      o.on("-p", "--lowest-listen-port PORT") do |p|
+        options[:lowest_listen_port] = p.to_i
+      end
+      o.on("-P", "--highest-listen-port PORT") do |p|
+        options[:highest_listen_port] = p.to_i
+      end
     end).parse!  rescue (puts opts; return)
 
     EventMachine::run do
