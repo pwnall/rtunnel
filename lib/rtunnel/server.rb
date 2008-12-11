@@ -13,6 +13,7 @@ class RTunnel::Server
   
   attr_reader :control_address, :control_host, :control_port
   attr_reader :keep_alive_interval, :authorized_keys
+  attr_reader :lowest_listen_port, :highest_listen_port
   attr_reader :tunnel_connections
   
   def initialize(options = {})
@@ -96,7 +97,8 @@ class RTunnel::Server
   ## option processing
   
   def process_options(options)
-    [:control_address, :keep_alive_interval, :authorized_keys].each do |opt|
+    [:control_address, :keep_alive_interval, :authorized_keys,
+     :lowest_listen_port, :highest_listen_port].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -124,6 +126,14 @@ class RTunnel::Server
   
   def self.extract_authorized_keys(keys_file)
     keys_file and Crypto.load_public_keys keys_file
+  end
+  
+  def self.extract_lowest_listen_port(port)
+    port || 0
+  end
+  
+  def self.extract_highest_listen_port(port)
+    port || 65535
   end
 end
 
@@ -165,14 +175,13 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   ## Command processing
     
   def process_remote_listen(address)
-    if @server.authorized_keys and @out_hasher.nil?
-      D "Asked to open listen socket by unauthorized client"
-      send_command SetSessionKeyCommand.new('NO')
-      return
-    end
-    
     listen_host = SocketFactory.host_from_address address
     listen_port = SocketFactory.port_from_address address
+
+    unless validate_remote_listen listen_host, listen_port
+      send_command SetSessionKeyCommand.new('NO')
+      return      
+    end
     
     @server.create_tunnel_listener listen_port, self do
       D "Creating listener for #{listen_host} port #{listen_port}"
@@ -188,6 +197,21 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     end
     
     D "Listening on #{listen_host} port #{listen_port}"
+  end
+  
+  # Verifies if a RemoteListenCommand should be honored.
+  def validate_remote_listen(host, port)
+    if @server.authorized_keys and @out_hasher.nil?
+      D "Asked to open listen socket by unauthorized client"
+      return false
+    end
+    
+    if port < @server.lowest_listen_port or port > @server.highest_listen_port
+      D "Asked to listen to forbidden port"
+      return false
+    end
+    
+    true
   end
   
   def process_send_data(tunnel_connection_id, data)
