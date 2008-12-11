@@ -46,6 +46,14 @@ Client setup:
 
 `rtunnel_client -c myserver.com -f 4000 -t 3000 -k /etc/ssh/ssh_host_rsa_key`
 
+If you're concerned about security, you probably want to restrict the range of
+ports that clients can open up on the rtunnel server.
+
+`rtunnel_server -p 3000 -P 3999`
+
+restricts clients to using ports 3000-3999 for reverse tunnels.
+
+
 RTunnel?
 -
 
