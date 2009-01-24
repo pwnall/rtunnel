@@ -10,7 +10,7 @@ class RTunnel::Command
   
     def register(klass, command_code)
       if @codes.has_key? command_code
-        raise "Command code #{command_code} already used for #{@codes[command_code].name}\n"
+        raise "Command code #{command_code} already used for #{@codes[command_code].name}"
       end
       
       @codes[klass] = command_code

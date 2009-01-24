@@ -29,7 +29,7 @@ module RTunnel::IOExtensions
       break if more == 0
       multiplier *= 0x80
     end
-    return size
+    size
   end
   
   # writes a string and its length, so it can later be read with read_varstr
@@ -41,9 +41,9 @@ module RTunnel::IOExtensions
   # reads a variable-length string that was previously written with write_varstr
   def read_varstring
     length = read_varsize
-    str = read length
     return '' if length == 0
-    if !str || str.length != length
+    str = read(length)
+    if ! str or str.length != length
       raise RTunnel::TruncatedDataError, "Encoded varstring truncated"
     end
     str
