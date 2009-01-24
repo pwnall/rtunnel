@@ -144,9 +144,23 @@ class TunnelTest < Test::Unit::TestCase
       end
     end
   end
+  
+  def test_bad_listen_address
+    @tunnel_server = new_server
+    @tunnel_client = new_client :remote_listen_address =>
+                                "18.70.0.160:#{@listen_port}"
+                                
+    tunnel_test do
+      EventMachine::start_server @local_host, @tunnel_port,
+          ScenarioConnection, self, []
+                                     
+      EventMachine::connect @local_host, @listen_port,
+          ScenarioConnection, self, [[:unbind], [:stop, @stop_proc]]
+    end
+  end
 
   # TODO: fix this
-  def TODO_test_secure_server_rejects_unsecure_client
+  def test_secure_server_rejects_unsecure_client
     @tunnel_server = new_server :authorized_keys => @hosts_file
     tunnel_test(@secure_connection_time) do
       EventMachine::start_server @local_host, @tunnel_port,

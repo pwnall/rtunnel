@@ -12,7 +12,8 @@ class RTunnel::Server
   include RTunnel::ConnectionId
   
   attr_reader :control_address, :control_host, :control_port
-  attr_reader :ping_interval, :authorized_keys
+  attr_reader :keep_alive_interval, :authorized_keys
+  attr_reader :lowest_listen_port, :highest_listen_port
   attr_reader :tunnel_connections
   
   def initialize(options = {})
@@ -53,7 +54,8 @@ class RTunnel::Server
     end
     
     EventMachine.next_tick do
-      yield
+      next unless yield
+      
       @tunnel_controls[listen_port] = control_connection
       redirect_tunnel_connections old_control, control_connection if old_control
       on_remote_listen
@@ -95,7 +97,8 @@ class RTunnel::Server
   ## option processing
   
   def process_options(options)
-    [:control_address, :ping_interval, :authorized_keys].each do |opt|
+    [:control_address, :keep_alive_interval, :authorized_keys,
+     :lowest_listen_port, :highest_listen_port].each do |opt|
       instance_variable_set "@#{opt}".to_sym,
           RTunnel::Server.send("extract_#{opt}".to_sym, options[opt])
     end
@@ -117,12 +120,20 @@ class RTunnel::Server
     "#{host}:#{port}"
   end
   
-  def self.extract_ping_interval(interval)
-    interval || RTunnel::PING_INTERVAL
+  def self.extract_keep_alive_interval(interval)
+    interval || RTunnel::KEEP_ALIVE_INTERVAL
   end
   
   def self.extract_authorized_keys(keys_file)
     keys_file and Crypto.load_public_keys keys_file
+  end
+  
+  def self.extract_lowest_listen_port(port)
+    port || 0
+  end
+  
+  def self.extract_highest_listen_port(port)
+    port || 65535
   end
 end
 
@@ -142,7 +153,8 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
     @server = server
     @tunnel_connections = server.tunnel_connections
     @listener = nil
-    @ping_timer = nil
+    @keep_alive_timer = nil
+    @keep_alive_interval = server.keep_alive_interval
     @in_hasher = @out_hasher = nil
     
     init_log :to => @server
@@ -151,35 +163,55 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   def post_init
     @client_port, @client_host = *Socket.unpack_sockaddr_in(get_peername)
     D "Established connection with #{@client_host} port #{@client_port}"
-    enable_pinging
+    enable_keep_alives
   end
   
   def unbind
     D "Lost connection from #{@client_host} port #{@client_port}"
-    disable_pinging
+    disable_keep_alives
   end
   
   
   ## Command processing
     
   def process_remote_listen(address)
-    if @server.authorized_keys and @out_hasher.nil?
-      D "Asked to open listen socket by unauthorized client"
-      send_command SetSessionKeyCommand.new('NO')
-      return
-    end
-    
     listen_host = SocketFactory.host_from_address address
     listen_port = SocketFactory.port_from_address address
+
+    unless validate_remote_listen listen_host, listen_port
+      send_command SetSessionKeyCommand.new('NO')
+      return      
+    end
     
     @server.create_tunnel_listener listen_port, self do
       D "Creating listener for #{listen_host} port #{listen_port}"
-      @listener = EventMachine.start_server listen_host, listen_port,
-                                             Server::TunnelConnection, self,
-                                             listen_host, listen_port
+      begin
+        @listener = EventMachine.start_server listen_host, listen_port,
+                                               Server::TunnelConnection, self,
+                                               listen_host, listen_port
+      rescue RuntimeError => e
+        # EventMachine raises 'no acceptor' if the listen address is invalid
+        E "Invalid listen address #{listen_host}"        
+        @listener = nil
+      end
     end
     
     D "Listening on #{listen_host} port #{listen_port}"
+  end
+  
+  # Verifies if a RemoteListenCommand should be honored.
+  def validate_remote_listen(host, port)
+    if @server.authorized_keys and @out_hasher.nil?
+      D "Asked to open listen socket by unauthorized client"
+      return false
+    end
+    
+    if port < @server.lowest_listen_port or port > @server.highest_listen_port
+      D "Asked to listen to forbidden port"
+      return false
+    end
+    
+    true
   end
   
   def process_send_data(tunnel_connection_id, data)
@@ -238,20 +270,35 @@ class RTunnel::Server::ControlConnection < EventMachine::Connection
   end
   
   
-  ## Pinging
+  ## Keep-Alives (preventing timeouts)
   
-  # Enables sending PingCommands every few seconds.
-  def enable_pinging
-    @ping_timer = EventMachine::PeriodicTimer.new 2.0 do
-      send_command PingCommand.new
-     end
+  #:nodoc:
+  def send_command(command)
+    @last_command_time = Time.now
+    super
+  end
+
+  # Enables sending KeepAliveCommands every few seconds.
+  def enable_keep_alives
+    @last_command_time = Time.now
+    @keep_alive_timer =
+        EventMachine::PeriodicTimer.new(@keep_alive_interval / 2) do
+      keep_alive_if_needed
+    end
+  end
+
+  # Sends a KeepAlive command if no command was sent recently.
+  def keep_alive_if_needed
+    if Time.now - @last_command_time >= @keep_alive_interval
+      send_command KeepAliveCommand.new
+    end
   end
   
-  # Disables processing of ping timeouts.
-  def disable_pinging
-    return unless @ping_timer
-    @ping_timer.cancel
-    @ping_timer = nil
+  # Disables sending KeepAlives.
+  def disable_keep_alives
+    return unless @keep_alive_timer
+    @keep_alive_timer.cancel
+    @keep_alive_timer = nil
   end  
 end
 
