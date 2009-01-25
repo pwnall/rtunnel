@@ -20,6 +20,7 @@ lib/rtunnel/server.rb
 lib/rtunnel/socket_factory.rb
 lib/rtunnel/connection_id.rb
 lib/rtunnel/command_processor.rb
+rtunnel.gemspec
 spec/client_spec.rb
 spec/cmds_spec.rb
 spec/integration_spec.rb

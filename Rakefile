@@ -32,7 +32,7 @@ Echoe.new('rtunnel') do |p|
   p.email = 'coderrr.contact@gmail.com'
   p.summary = 'Reverse tunnel server and client.'  
   p.description = ''
-  p.url = 'http://code.google.com/p/rtunnel/'
+  p.url = 'http://github.com/coderrr/rtunnel'
   # p.remote_rdoc_dir = '' # Release to root
   p.dependencies = ["eventmachine >=0.12.2",
                     "net-ssh >=2.0.4"]
