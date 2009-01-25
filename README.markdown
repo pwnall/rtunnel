@@ -5,7 +5,6 @@ on server and local machine:
 
 `gem sources -a http://gems.github.com`
 `sudo gem install coderrr-rtunnel`
-
 If you don't have root access, rubygems will install the gem into your `~/.gem` directory.  If you install it like this, make sure you add the gems executable dir to your path.
 
 `export PATH=$PATH:~/.gem/ruby/1.8/bin`
