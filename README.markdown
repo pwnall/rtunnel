@@ -3,11 +3,12 @@ INSTALL
 
 on server and local machine:
 
-`gem sources -a http://gems.github.com`
+`gem sources -a http://gems.github.com
+sudo gem install coderrr-rtunnel`
 
-`sudo gem install coderrr-rtunnel`
+If you don't have root access, rubygems will install the gem into your `~/.gem` directory.  If you install it like this, make sure you add the gems executable dir to your path.
 
-If you don't have root access on server, you can use either the rtunnel_server_linux binary (only works with linux), or extract the .tar.gz and use `rtunnel_server.rb` (all function the same)
+`export PATH=$PATH:~/.gem/ruby/1.8/bin`
 
 USAGE
 -
@@ -57,16 +58,16 @@ restricts clients to using ports 3000-3999 for reverse tunnels.
 RTunnel?
 -
 
-This client/server allow you to reverse tunnel traffic.  Reverse tunneling is useful if you want to run a server behind a NAT and you do not have the ability use port forwarding.  The specific reason I created this program was to reduce the pain of Facebook App development on a crappy internet connection that drops often.  ssh -R was not cutting it.
+This client/server allow you to reverse tunnel traffic.  Reverse tunneling is useful if you want to run a server behind a NAT and you do not have the ability to use port forwarding.  The specific reason I created this program was to reduce the pain of Facebook App development on a crappy internet connection that drops often.  ssh -R was not cutting it.
 
 **How does reverse tunneling work?**
 
   * tunnel\_client makes connection to tunnel\_server (through NAT)
   * tunnel_server listens on port X
   * internet_user connects to port X on tunnel server
-  * tunnel\_server uses existing connection to tunnel internet user's request back to tunnel\_client
+  * tunnel\_server uses existing connection to tunnel internet\_user's request back to tunnel\_client
   * tunnel_client connects to local server on port Y
-  * tunnel_client tunnels internet users connection through to local server
+  * tunnel_client tunnels internet\_user's connection through to local server
 
 or:
 
@@ -79,4 +80,4 @@ With tunneling, usually your connections are made in the same direction you crea
 
 **Why not just use ssh -R?**
 
-The same thing can be achieved with ssh -R, why not just use it?  A lot of ssh servers don't have the GatewayPorts sshd option set up to allow you to reverse tunnel.  If you are not in control of the server and it is not setup correctly then you are SOL.  RTunnel does not require you are in control of the server.  ssh -R has other annoyances.  When your connection drops and you try to re-initiate the reverse tunnel sometimes you get an address already in use error because the old tunnel process is still laying around.  This requires you to kill the existing sshd process.  RTunnel does not have this problem.
+The same thing can be achieved with ssh -R, so why not just use it?  A lot of ssh servers don't have the GatewayPorts sshd option set up to allow you to reverse tunnel.  If you are not in control of the server and it is not setup correctly then you are SOL.  RTunnel does not require you are in control of the server.  ssh -R also has other annoyances.  When your connection drops and you try to re-initiate the reverse tunnel sometimes you get an 'address already in use error' because the old tunnel process is still laying around.  This may require you to kill the existing sshd process.  RTunnel does not have this problem.
