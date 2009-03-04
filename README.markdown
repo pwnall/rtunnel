@@ -56,7 +56,7 @@ ports that clients can open up on the rtunnel server.
 restricts clients to using ports 3000-3999 for reverse tunnels.
 
 
-RTunnel?
+[RTunnel?][1]
 -
 
 This client/server allow you to reverse tunnel traffic.  Reverse tunneling is useful if you want to run a server behind a NAT and you do not have the ability to use port forwarding.  The specific reason I created this program was to reduce the pain of Facebook App development on a crappy internet connection that drops often.  ssh -R was not cutting it.
@@ -82,3 +82,5 @@ With tunneling, usually your connections are made in the same direction you crea
 **Why not just use ssh -R?**
 
 The same thing can be achieved with ssh -R, so why not just use it?  A lot of ssh servers don't have the GatewayPorts sshd option set up to allow you to reverse tunnel.  If you are not in control of the server and it is not setup correctly then you are SOL.  RTunnel does not require you are in control of the server.  ssh -R also has other annoyances.  When your connection drops and you try to re-initiate the reverse tunnel sometimes you get an 'address already in use error' because the old tunnel process is still laying around.  This may require you to kill the existing sshd process.  RTunnel does not have this problem.
+
+  [1]: #about
