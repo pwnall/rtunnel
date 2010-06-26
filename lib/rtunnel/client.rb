@@ -23,14 +23,15 @@ class RTunnel::Client
   def start
     return if @server_connection
     @control_host = SocketFactory.host_from_address @control_address
+    @control_bind_host = SocketFactory.bind_host_from_address @control_address
     @control_port = SocketFactory.port_from_address @control_address
     connect_to_server
   end
     
   def connect_to_server
     D "Connecting to #{@control_host} port #{@control_port}"
-    @server_connection = EventMachine.connect @control_host, @control_port,
-                                               Client::ServerConnection, self
+    @server_connection = EventMachine.bind_connect @control_bind_host, nil, @control_host, @control_port,
+                                                   Client::ServerConnection, self
   end
   
   def stop
