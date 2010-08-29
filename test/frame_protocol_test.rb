@@ -1,8 +1,4 @@
-require 'rtunnel'
-
-require 'test/unit'
-
-require 'test/protocol_mocks.rb'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 # Send mock for frames.
 class EmSendFramesMock < EmSendMock

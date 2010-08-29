@@ -1,6 +1,4 @@
-require 'rtunnel'
-
-require 'test/unit'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 class ConnectionIdTest < Test::Unit::TestCase
   class CidWrapper

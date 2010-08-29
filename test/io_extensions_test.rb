@@ -1,7 +1,4 @@
-require 'rtunnel'
-
-require 'stringio'
-require 'test/unit'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 class IOExtensionsTest < Test::Unit::TestCase  
   def setup

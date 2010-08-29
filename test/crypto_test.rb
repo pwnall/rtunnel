@@ -1,7 +1,4 @@
-require 'rtunnel'
-
-require 'openssl'
-require 'test/unit'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 class CryptoTest < Test::Unit::TestCase
   C = RTunnel::Crypto

@@ -1,9 +1,4 @@
-require 'rtunnel'
-
-require 'test/unit'
-
-require 'test/command_stubs.rb'
-require 'test/protocol_mocks.rb'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 # Send mock for commands.
 class EmSendCommandsMock < EmSendMock

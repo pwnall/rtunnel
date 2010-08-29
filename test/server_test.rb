@@ -1,8 +1,4 @@
-require 'rtunnel'
-
-require 'resolv'
-require 'test/unit'
-
+require File.expand_path('../test_helper.rb', __FILE__)
 
 class ServerTest < Test::Unit::TestCase
   def setup    

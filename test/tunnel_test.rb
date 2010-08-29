@@ -1,11 +1,4 @@
-require 'rtunnel'
-
-require 'test/unit'
-
-require 'rubygems'
-require 'eventmachine'
-
-require 'test/scenario_connection.rb'
+require File.expand_path('../test_helper.rb', __FILE__)
 
 # Integration tests ensuring that we can start a tunnel.
 class TunnelTest < Test::Unit::TestCase
