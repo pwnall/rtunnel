@@ -22,6 +22,7 @@ class SocketFactoryTest < Test::Unit::TestCase
   def test_port_from_address
     assert_equal nil, SF.port_from_address(nil)
     assert_equal nil, SF.port_from_address('127.0.0.1')
+    assert_equal 22, SF.port_from_address('127.0.0.1:22')
     assert_equal 1234, SF.port_from_address('127.0.0.1:1234')
     assert_equal nil, SF.port_from_address('fe80::1%lo0')
     assert_equal 19020, SF.port_from_address('fe80::1%lo0:19020')
@@ -32,9 +33,9 @@ class SocketFactoryTest < Test::Unit::TestCase
     assert_equal nil, SF.bind_host_from_address('127.0.0.1:1234')
     assert_equal nil, SF.bind_host_from_address('fe80::1%lo0')
     assert_equal nil, SF.bind_host_from_address('fe80::1%lo0:19020')
-    assert_equal '127.0.0.1', SF.bind_host_from_address('127.0.0.1:1234:127.0.0.1')
-    assert_equal '192.168.1.1', SF.bind_host_from_address('fe80::1%lo0:19020:192.168.1.1')
-    assert_equal 'fe80::1%eth1', SF.bind_host_from_address('fe80::1%lo0:19020:fe80::1%eth1')
+    assert_equal '127.0.0.1', SF.bind_host_from_address('127.0.0.1:1234@127.0.0.1')
+    assert_equal '192.168.1.1', SF.bind_host_from_address('fe80::1%lo0:19020@192.168.1.1')
+    assert_equal 'fe80::1%eth1', SF.bind_host_from_address('fe80::1%lo0:19020@fe80::1%eth1')
   end
   
   def test_inbound

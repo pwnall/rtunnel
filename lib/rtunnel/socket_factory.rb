@@ -2,8 +2,14 @@ require 'socket'
 
 module RTunnel::SocketFactory
   def self.split_address(address)
-    address =~ /\A(.+?[^:])(?::([^:].+?[^:])(?::([^:].+?[^:]))?)?\Z/
-    [$1, $2, $3]
+    host_port, bind_address = *address.split('@', 2)
+    port_index = host_port.index /[^:]\:[^:]/
+    host, port = *(if port_index
+      [host_port[0, port_index + 1], host_port[port_index + 2, address.length]]
+    else
+      [address, nil]
+    end)
+    [host, port, bind_address]
   end
   
   def self.host_from_address(address)

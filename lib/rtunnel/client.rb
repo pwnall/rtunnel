@@ -132,11 +132,11 @@ class RTunnel::Client::ServerConnection < EventMachine::Connection
   end
   
   def unbind
-    # wait for a second, then try connecting again
-    W 'Lost server connection, will reconnect in 1s'
-    EventMachine.add_timer(1.0) { client.connect_to_server }
     @connections.each { |conn_id, conn| conn.close_connection_after_writing }
     @connections.clear
+
+    W 'Lost server connection, will reconnect in 1s'
+    EventMachine.add_timer(1.0) { client.connect_to_server }
   end
   
   
